@@ -1,0 +1,3 @@
+[submodule "tnylpo"]
+	path = tnylpo
+	url = https://gitlab.com/gbrein/tnylpo.git
