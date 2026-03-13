@@ -28,8 +28,6 @@ void plog_dump(int addr, int length) {}
 
 void usage(void) {}
 
-int os_init(void) { return 0; }
-
 void os_call(int magic) {}
 
 void console_poll(void) {}

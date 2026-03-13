@@ -34,7 +34,7 @@ project(cpicocalcm C CXX ASM)
 pico_sdk_init()
 
 # Add executable.Default name is the project name, version 0.1
-add_executable(cpicocalcm cpicocalcm.c patch.c tnylpo/util.c tnylpo/readconf.c)
+add_executable(cpicocalcm cpicocalcm.c patch.c tnylpo/cpu.c tnylpo/os.c tnylpo/util.c tnylpo/readconf.c)
 
 pico_set_program_name(cpicocalcm "cpicocalcm")
 pico_set_program_version(cpicocalcm "0.1")

@@ -1,6 +1,7 @@
 #define _POSIX_TIMERS 1
 
-#include "tnylpo/cpu.c"
+// #include "tnylpo/os.c"
+// #include "tnylpo/cpu.c"
 #include "tnylpo/tnylpo.h"
 #include <hardware/gpio.h>
 #include <pico/aon_timer.h>
