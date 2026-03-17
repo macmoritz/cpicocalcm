@@ -1,5 +1,6 @@
 #include "tnylpo/tnylpo.h"
 #include <pico/aon_timer.h>
+#include <pico/stdlib.h>
 #include <pico/time.h>
 #include <pico/types.h>
 #include <stdarg.h>
@@ -27,10 +28,6 @@ void plog(const char *format, ...) {
 void plog_dump(int addr, int length) {}
 
 void usage(void) {}
-
-void os_call(int magic) {}
-
-void console_poll(void) {}
 
 // implementing sigaction for
 // /home/ubuntu/.pico-sdk/toolchain/14_2_Rel1/arm-none-eabi/include/sys/signal.h

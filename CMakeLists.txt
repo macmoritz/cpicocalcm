@@ -34,7 +34,7 @@ project(cpicocalcm C CXX ASM)
 pico_sdk_init()
 
 # Add executable.Default name is the project name, version 0.1
-add_executable(cpicocalcm cpicocalcm.c patch.c tnylpo/cpu.c tnylpo/os.c tnylpo/util.c tnylpo/readconf.c)
+add_executable(cpicocalcm cpicocalcm.c patch.c dirent.c ncurses.c tnylpo/os.c tnylpo/util.c tnylpo/readconf.c tnylpo/cpu.c tnylpo/chario.c tnylpo/screen.c)
 
 pico_set_program_name(cpicocalcm "cpicocalcm")
 pico_set_program_version(cpicocalcm "0.1")
@@ -49,6 +49,11 @@ target_link_libraries(cpicocalcm pico_stdlib pico_time pico_aon_timer)
 # Add the standard include files to the build
 target_include_directories(cpicocalcm PRIVATE 
     ${CMAKE_CURRENT_LIST_DIR}
+)
+
+# add patch.h to tnylpo/cpu.c to make implementation of nanosleep visible
+set_source_files_properties(tnylpo/cpu.c PROPERTIES
+    COMPILE_OPTIONS "-include;${CMAKE_CURRENT_LIST_DIR}/patch.h"
 )
 
 pico_add_extra_outputs(cpicocalcm)
