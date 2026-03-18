@@ -4,7 +4,8 @@
 #include <stdbool.h>
 #include <wchar.h>
 
-typedef struct _win_st WINDOW;
+typedef struct _win_st {
+} WINDOW;
 
 typedef struct {
 } cchar_t;

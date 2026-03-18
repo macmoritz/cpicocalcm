@@ -1,4 +1,6 @@
 #include "ncurses.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 int COLOR_PAIRS;
 WINDOW *curscr;
@@ -68,15 +70,23 @@ int init_pair(NCURSES_PAIRS_T a, NCURSES_COLOR_T b, NCURSES_COLOR_T c) {
 }
 
 WINDOW *initscr(void) {
-    return NULL;
+    if (curscr) {
+        return curscr;
+    }
+
+    curscr = (WINDOW *)malloc(sizeof(WINDOW));
+    if (!curscr) {
+        return NULL;
+    }
+    return curscr;
 }
 
 bool has_colors(void) {
-    return -1;
+    return 0;
 }
 
 int start_color(void) {
-    return -1;
+    return 1;
 }
 
 int noecho(void) {
@@ -88,7 +98,7 @@ int raw(void) {
 }
 
 WINDOW *newpad(int a, int b) {
-    return NULL;
+    return curscr;
 }
 
 int setcchar(cchar_t *a, const wchar_t *b, const attr_t c, NCURSES_PAIRS_T d, const void *e) {
@@ -112,7 +122,8 @@ int werase(WINDOW *w) {
 }
 
 int beep(void) {
-    return -1;
+    printf("ASCII 0x07 BELL\n");
+    return 0;
 }
 
 int scrollok(WINDOW *w, bool a) {
