@@ -1,4 +1,5 @@
 #include "ncurses.h"
+#include "picocalc.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -122,7 +123,7 @@ int werase(WINDOW *w) {
 }
 
 int beep(void) {
-    printf("ASCII 0x07 BELL\n");
+    picocalc_beep(750, 500);
     return 0;
 }
 

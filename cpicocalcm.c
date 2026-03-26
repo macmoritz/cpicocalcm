@@ -4,6 +4,7 @@
 // #include "tnylpo/cpu.c"
 // #include "tnylpo/os.c"
 #include "cpm-tpa/bell.h"
+#include "picocalc.h"
 #include "tnylpo/tnylpo.h"
 #include <hardware/gpio.h>
 #include <pico/aon_timer.h>
@@ -17,6 +18,7 @@
 
 int main() {
     stdio_init_all();
+    picocalc_init();
 
     conf_command = "./main.com"; // Does not get loaded anyway
     int status = cpu_init();
