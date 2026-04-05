@@ -44,7 +44,7 @@ pico_enable_stdio_uart(cpicocalcm 1)
 pico_enable_stdio_usb(cpicocalcm 0)
 
 # Add the standard library to the build
-target_link_libraries(cpicocalcm pico_stdlib pico_time pico_aon_timer hardware_pwm hardware_clocks)
+target_link_libraries(cpicocalcm pico_stdlib pico_time pico_aon_timer hardware_pwm hardware_clocks hardware_i2c)
 
 # Add the standard include files to the build
 target_include_directories(cpicocalcm PRIVATE 

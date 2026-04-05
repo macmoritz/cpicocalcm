@@ -4,6 +4,7 @@
 // #include "tnylpo/cpu.c"
 // #include "tnylpo/os.c"
 #include "cpm-tpa/bell.h"
+#include "cpm-tpa/keyboard_bell.h"
 #include "picocalc.h"
 #include "tnylpo/tnylpo.h"
 #include <hardware/gpio.h>
@@ -19,9 +20,18 @@
 int main() {
     stdio_init_all();
     picocalc_init();
+    picocalc_print_version();
+    picocalc_read_battery();
 
     conf_command = "./main.com"; // Does not get loaded anyway
-    int status = cpu_init();
+    conf_interactive = true;
+    int status = read_config(NULL); // needed to set charset, by default VT52
+    if (status) {
+        printf("read_config failed\n");
+        return 1;
+    }
+
+    status = cpu_init();
     if (status) {
         printf("cpu_init failed\n");
         return 1;
@@ -30,7 +40,8 @@ int main() {
     // memory[1] = 0xff;
     // memory[2] = 0x47; // LD B, A
     // memory[3] = 0x05; // DEC B
-    memcpy(memory + TPA_START, bell_com, bell_com_len);
+    // memcpy(memory + TPA_START, bell_com, bell_com_len);
+    memcpy(memory + TPA_START, keyboard_bell_com, keyboard_bell_com_len);
 
     status = console_init();
     if (status) {
