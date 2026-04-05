@@ -69,7 +69,7 @@ int wget_wch(WINDOW *w, wint_t *a) {
     if (w == NULL || a == NULL) {
         return ERR;
     }
-    int key = picocalc_read_i2c_kbd();
+    int key = picocalc_read_kbd();
     if (key == -1) {
         return ERR;
     }
