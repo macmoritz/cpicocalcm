@@ -48,8 +48,7 @@ void picocalc_beep(uint32_t freq, uint32_t duration) {
     pwm_set_enabled(slice, false);
 }
 
-// https://github.com/clockworkpi/PicoCalc/blob/master/Code/picocalc_kbd_tester/i2ckbd/i2ckbd.c
-int picocalc_read_i2c_kbd() {
+int picocalc_read_kbd() {
     // returned data: [0] keystate, [1] keycode
     // keystate:
     //  - 0: IDLE
@@ -74,7 +73,6 @@ int picocalc_read_i2c_kbd() {
     return -1;
 }
 
-// https://github.com/clockworkpi/PicoCalc/blob/master/Code/picocalc_kbd_tester/i2ckbd/i2ckbd.c
 int picocalc_read_battery() {
     // returned data: [0] reg, [1] reg value: battery in percent
     uint8_t buf[2] = {0xff, 0};
