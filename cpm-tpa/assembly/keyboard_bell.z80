@@ -1,0 +1,13 @@
+;; Rings bell via ASCII on input
+loop:
+    ; Read input blocking and echo
+    ld      c,01h ; BIOS function 1 = CONIN
+    call    0005h ; Run BIOS
+
+    ; Ring bell
+    ld      e,07h ; 0x07 = ASCII BELL
+    ld      c,02h ; BIOS function 2 = CONOUT 
+    call    0005h ; Run BIOS
+    
+    ; Loop
+    jr      loop

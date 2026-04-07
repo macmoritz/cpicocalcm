@@ -1,0 +1,4 @@
+;; Rings bell via ASCII
+    ld      e,07h ; 0x07 = ASCII BELL
+    ld      c,02h ; BIOS function 2 = CONOUT 
+    call    0005h ; Run BIOS

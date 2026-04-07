@@ -3,8 +3,10 @@
 
 // #include "tnylpo/cpu.c"
 // #include "tnylpo/os.c"
-#include "cpm-tpa/bell.h"
-#include "cpm-tpa/keyboard_bell.h"
+#include "cpm-tpa/assembly/bell.h"
+#include "cpm-tpa/assembly/keyboard_bell.h"
+// #include "cpm-tpa/bell.h"
+// #include "cpm-tpa/keyboard_bell.h"
 #include "picocalc.h"
 #include "tnylpo/tnylpo.h"
 #include <hardware/gpio.h>
