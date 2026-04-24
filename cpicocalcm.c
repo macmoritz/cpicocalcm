@@ -28,6 +28,7 @@ int main() {
     aon_timer_start(&ts);
 
     picocalc_init();
+    picocalc_drain_keyboard_fifo();
     picocalc_print_version();
     picocalc_read_battery();
 

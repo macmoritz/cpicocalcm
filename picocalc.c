@@ -24,6 +24,28 @@ void picocalc_init() {
     gpio_pull_up(I2C_KBD_SDA);
 }
 
+int picocalc_drain_keyboard_fifo() {
+    uint8_t buf[1] = {0x00};
+
+    int status = picocalc_i2c(0x04, buf);
+    if (status == -1) {
+        printf("picocalc_reset i2c write error\n");
+        return -1;
+    } else if (status == -2) {
+        printf("read_battery i2c read error\n");
+        return -1;
+    }
+
+    if (buf[0] != 0x00) {
+        for (int i = 0; i < buf[0]; i++) {
+            picocalc_read_kbd();
+        }
+    }
+    printf("PicoCalc keyboard fifo contained %d keys, it was drained\n", buf[0]);
+
+    return buf[0];
+}
+
 void picocalc_beep(uint32_t freq, uint32_t duration) {
     const uint slice = pwm_gpio_to_slice_num(AUDIO_PWM_L);
     const uint channelL = pwm_gpio_to_channel(AUDIO_PWM_L);

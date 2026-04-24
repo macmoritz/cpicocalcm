@@ -21,6 +21,13 @@
 void picocalc_init();
 
 /**
+ * @brief Drains the PicoCalc keyboard fifo.
+ *
+ * @return -1 if error, any other value is returned from picocalc fifo count
+ */
+int picocalc_drain_keyboard_fifo();
+
+/**
  * @brief Produces a static tone with given parameters. Runs blocking.
  *
  * @param freq Frequency of the tone in Hz
@@ -32,7 +39,7 @@ void picocalc_beep(uint32_t freq, uint32_t duration);
  * @brief Reads blocking from the PicoCalc keyboard via i2c.
  * @note implementation based on https://github.com/clockworkpi/PicoCalc/blob/master/Code/picocalc_kbd_tester/i2ckbd/i2ckbd.c
  *
- * @return Keycode
+ * @return Keycode, or -1 if something went wrong
  */
 int picocalc_read_kbd();
 
@@ -40,7 +47,7 @@ int picocalc_read_kbd();
  * @brief Reads the battery level from PicoCalc blocking.
  * @note implementation based on https://github.com/clockworkpi/PicoCalc/blob/master/Code/picocalc_kbd_tester/i2ckbd/i2ckbd.c
  *
- * @return percent level of the battery
+ * @return percent level of the battery, or -1 if something went wrong
  */
 int picocalc_read_battery();
 
