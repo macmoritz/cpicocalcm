@@ -114,7 +114,7 @@
 #define KEY_MAX 0777 /* Maximum key value is 0632 */
 
 /* attributes */
-typedef unsigned chtype;
+typedef unsigned int chtype;
 #define NCURSES_ATTR_SHIFT 8
 #define NCURSES_BITS(mask, shift) ((chtype)(mask)) << ((shift) + NCURSES_ATTR_SHIFT)
 

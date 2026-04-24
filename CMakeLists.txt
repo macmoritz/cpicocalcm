@@ -34,7 +34,7 @@ project(cpicocalcm C CXX ASM)
 pico_sdk_init()
 
 # Add executable.Default name is the project name, version 0.1
-add_executable(cpicocalcm cpicocalcm.c patch.c dirent.c ncurses.c termios.c picocalc.c tnylpo/os.c tnylpo/util.c tnylpo/readconf.c tnylpo/cpu.c tnylpo/chario.c tnylpo/screen.c)
+add_executable(cpicocalcm cpicocalcm.c patch.c dirent.c ncurses.c termios.c picocalc.c lcd.c tnylpo/os.c tnylpo/util.c tnylpo/readconf.c tnylpo/cpu.c tnylpo/chario.c tnylpo/screen.c)
 
 pico_set_program_name(cpicocalcm "cpicocalcm")
 pico_set_program_version(cpicocalcm "0.1")
@@ -44,7 +44,7 @@ pico_enable_stdio_uart(cpicocalcm 1)
 pico_enable_stdio_usb(cpicocalcm 0)
 
 # Add the standard library to the build
-target_link_libraries(cpicocalcm pico_stdlib pico_time pico_aon_timer hardware_pwm hardware_clocks hardware_i2c)
+target_link_libraries(cpicocalcm pico_stdlib pico_time pico_aon_timer hardware_pwm hardware_clocks hardware_i2c hardware_spi)
 
 # Add the standard include files to the build
 target_include_directories(cpicocalcm PRIVATE 

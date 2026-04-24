@@ -2,5 +2,6 @@ build/
 .cache/
 .vscode/
 cpm-tpa/*.com
+cpm-tpa/*.lst
 cpm-tpa/*.z80
 cpm-tpa/assembly/*.com
