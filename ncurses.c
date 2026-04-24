@@ -385,7 +385,7 @@ int werase(WINDOW *w) {
 }
 
 int beep(void) {
-    picocalc_beep(750, 500);
+    picocalc_beep(440, 500);
     return 0;
 }
 
