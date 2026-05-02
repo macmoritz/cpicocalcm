@@ -70,6 +70,7 @@ int main() {
     // memory[3] = 0x05; // DEC B
     // memcpy(memory + TPA_START, bell_com, bell_com_len);
     // memcpy(memory + TPA_START, keyboard_bell_com, keyboard_bell_com_len);
+    // memcpy(memory + TPA_START, colors_com, colors_com_len);
     memcpy(memory + TPA_START, ncurses_test_com, ncurses_test_com_len);
 
     status = console_init();
