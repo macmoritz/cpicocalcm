@@ -170,7 +170,7 @@ int wrefresh(WINDOW *w) {
     }
 
     const int64_t delta = absolute_time_diff_us(time, to_us_since_boot(get_absolute_time()));
-    // printf("wrefresh took %lld us\n", delta);
+    printf("wrefresh took %lld us\n", delta);
 
     return OK;
 }

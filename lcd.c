@@ -1,4 +1,5 @@
 // initial version from https://github.com/clockworkpi/PicoCalc/tree/master/Code/picocalc_kbd_tester/lcdspi
+#include <hardware/platform_defs.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -369,11 +370,13 @@ void lcd_init() {
     gpio_set_dir(PICO_LCD_RST, GPIO_OUT);
 
     // init SPI
-    spi_init(PICO_LCD_SPI_MOD, LCD_SPI_SPEED);
+    const int baudrate = spi_init(PICO_LCD_SPI_MOD, LCD_SPI_SPEED);
     gpio_set_function(PICO_LCD_SCK, GPIO_FUNC_SPI);
     gpio_set_function(PICO_LCD_TX, GPIO_FUNC_SPI);
     gpio_set_function(PICO_LCD_RX, GPIO_FUNC_SPI);
     gpio_set_input_hysteresis_enabled(PICO_LCD_RX, true);
+
+    printf("SPI baudrate: %d\n", baudrate);
 
     gpio_put(PICO_LCD_CS, 1);
     gpio_put(PICO_LCD_RST, 1);

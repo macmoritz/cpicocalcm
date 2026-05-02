@@ -3,9 +3,8 @@
 #define LCDSPI_H
 #include <hardware/spi.h>
 
-// #define LCD_SPI_SPEED   6000000
-#define LCD_SPI_SPEED 25000000
-// #define LCD_SPI_SPEED 50000000
+// #define LCD_SPI_SPEED 25000000
+#define LCD_SPI_SPEED SYS_CLK_HZ
 
 #define PICO_LCD_SCK 10 // Clock
 #define PICO_LCD_TX 11  // MOSI
