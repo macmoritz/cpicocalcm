@@ -30,16 +30,7 @@ enum Color {
     COLOR_COUNT,
 };
 
-static const unsigned int RGB_COLOR[COLOR_COUNT] = {
-    RGB(0, 0, 0),       // COLOR_BLACK
-    RGB(0, 0, 255),     // COLOR_BLUE
-    RGB(255, 0, 0),     // COLOR_RED
-    RGB(255, 0, 255),   // COLOR_MAGENTA
-    RGB(0, 255, 0),     // COLOR_GREEN
-    RGB(0, 255, 255),   // COLOR_CYAN
-    RGB(255, 255, 0),   // COLOR_YELLOW
-    RGB(255, 255, 255), // COLOR_WHITE
-};
+static const COLOR_TYPE RGB_COLOR[COLOR_COUNT] = {BLACK, BLUE, RED, MAGENTA, GREEN, CYAN, YELLOW, WHITE};
 
 #define COLOR_SHIFT 3 // log2(COLOR_COUNT)
 

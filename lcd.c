@@ -10,6 +10,7 @@
 #include <pico/time.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/_intsup.h>
 #include <wchar.h>
 
 #include "font.h"
@@ -47,7 +48,7 @@ void __not_in_flash_func(spi_finish)(spi_inst_t *spi) {
 void define_region_spi(int xstart, int ystart, int xend, int yend, int rw) {
     unsigned char coord[4];
     lcd_spi_lower_cs();
-    gpio_put(PICO_LCD_DC, 0); // gpio_put(PICO_LCD_DC,0);
+    gpio_put(PICO_LCD_DC, 0);
     hw_send_spi(&(uint8_t){ILI9488_COLADDRSET}, 1);
     gpio_put(PICO_LCD_DC, 1);
     coord[0] = xstart >> 8;
@@ -72,83 +73,70 @@ void define_region_spi(int xstart, int ystart, int xend, int yend, int rw) {
     gpio_put(PICO_LCD_DC, 1);
 }
 
-void lcd_draw_bitmap(int x1, int y1, int width, int height, int scale, int fc, int bc, const unsigned char *bitmap) {
+void lcd_draw_bitmap(int x1, int y1, int width, int height, COLOR_TYPE fc, COLOR_TYPE bc, const unsigned char *bitmap) {
     int i, j, k, m, n;
-    char f[3], b[3];
+    unsigned char foregroundBuffer[2], backgroundBuffer[2];
     int vertCoord, horizCoord, XStart, XEnd, YEnd;
     char *p = 0;
-    union colourmap {
-        char rgbbytes[4];
-        unsigned int rgb;
-    } c;
 
-    if (x1 >= hres || y1 >= vres || x1 + width * scale < 0 || y1 + height * scale < 0)
+    color_to_buffer(fc, foregroundBuffer);
+    color_to_buffer(bc, backgroundBuffer);
+
+    if (x1 >= hres || y1 >= vres || x1 + width < 0 || y1 + height < 0) {
         return;
+    }
     // adjust when part of the bitmap is outside the displayable coordinates
     vertCoord = y1;
-    if (y1 < 0)
+    if (y1 < 0) {
         y1 = 0; // the y coord is above the top of the screen
+    }
     XStart = x1;
-    if (XStart < 0)
+    if (XStart < 0) {
         XStart = 0; // the x coord is to the left of the left marginn
-    XEnd = x1 + (width * scale) - 1;
-    if (XEnd >= hres)
+    }
+    XEnd = x1 + width - 1;
+    if (XEnd >= hres) {
         XEnd = hres - 1; // the width of the bitmap will extend beyond the right margin
-    YEnd = y1 + (height * scale) - 1;
-    if (YEnd >= vres)
+    }
+    YEnd = y1 + height - 1;
+    if (YEnd >= vres) {
         YEnd = vres - 1; // the height of the bitmap will extend beyond the bottom margin
-
-    // convert the colours to 565 format
-    f[0] = (fc >> 16);
-    f[1] = (fc >> 8) & 0xFF;
-    f[2] = (fc & 0xFF);
-    b[0] = (bc >> 16);
-    b[1] = (bc >> 8) & 0xFF;
-    b[2] = (bc & 0xFF);
+    }
 
     define_region_spi(XStart, y1, XEnd, YEnd, 1);
 
     n = 0;
-    for (i = 0; i < height; i++) {    // step thru the font scan line by line
-        for (j = 0; j < scale; j++) { // repeat lines to scale the font
-            if (vertCoord++ < 0)
-                continue;           // we are above the top of the screen
-            if (vertCoord > vres) { // we have extended beyond the bottom of the screen
-                lcd_spi_raise_cs(); // set CS high
-                return;
+    for (i = 0; i < height; i++) { // step thru the font scan line by line
+        if (vertCoord++ < 0) {
+            continue; // we are above the top of the screen
+        }
+        if (vertCoord > vres) { // we have extended beyond the bottom of the screen
+            lcd_spi_raise_cs(); // set CS high
+            return;
+        }
+        horizCoord = x1;
+        for (k = 0; k < width; k++) { // step through each bit in a scan line
+            if (horizCoord++ < 0) {
+                continue; // we have not reached the left margin
             }
-            horizCoord = x1;
-            for (k = 0; k < width; k++) {     // step through each bit in a scan line
-                for (m = 0; m < scale; m++) { // repeat pixels to scale in the x axis
-                    if (horizCoord++ < 0)
-                        continue; // we have not reached the left margin
-                    if (horizCoord > hres)
-                        continue; // we are beyond the right margin
-                    if ((bitmap[((i * width) + k) / 8] >> (((height * width) - ((i * width) + k) - 1) % 8)) & 1) {
-                        hw_send_spi((uint8_t *)&f, 3);
-                    } else {
-                        if (bc == -1) {
-                            // TODO: cleanup?
-                            c.rgbbytes[0] = p[n];
-                            c.rgbbytes[1] = p[n + 1];
-                            c.rgbbytes[2] = p[n + 2];
-                            b[0] = c.rgbbytes[2];
-                            b[1] = c.rgbbytes[1];
-                            b[2] = c.rgbbytes[0];
-                        }
-                        hw_send_spi((uint8_t *)&b, 3);
-                    }
-                    n += 3;
-                }
+            if (horizCoord > hres) {
+                continue; // we are beyond the right margin
             }
+            if ((bitmap[((i * width) + k) / 8] >> (((height * width) - ((i * width) + k) - 1) % 8)) & 1) {
+                hw_send_spi(foregroundBuffer, 2);
+            } else {
+                hw_send_spi(backgroundBuffer, 2);
+            }
+            n += 3;
         }
     }
     lcd_spi_raise_cs(); // set CS high
 }
 
-void lcd_draw_rect(int x1, int y1, int x2, int y2, int c) {
-    // convert the color to 565 format
-    unsigned char col[3];
+void lcd_draw_rect(int x1, int y1, int x2, int y2, COLOR_TYPE c) {
+    unsigned char buffer[2];
+    color_to_buffer(c, buffer);
+
     if (x1 == x2 && y1 == y2) {
         if (x1 < 0)
             return;
@@ -159,13 +147,10 @@ void lcd_draw_rect(int x1, int y1, int x2, int y2, int c) {
         if (y1 >= vres)
             return;
         define_region_spi(x1, y1, x2, y2, 1);
-        col[0] = (c >> 16);
-        col[1] = (c >> 8) & 0xFF;
-        col[2] = (c & 0xFF);
-        hw_send_spi(col, 3);
+        hw_send_spi(buffer, 2);
     } else {
         int i, t, y;
-        unsigned char *p;
+        unsigned char *p = lcd_buffer;
         // make sure the coordinates are kept within the display area
         if (x2 <= x1) {
             t = x1;
@@ -177,33 +162,36 @@ void lcd_draw_rect(int x1, int y1, int x2, int y2, int c) {
             y1 = y2;
             y2 = t;
         }
-        if (x1 < 0)
+        if (x1 < 0) {
             x1 = 0;
-        if (x1 >= hres)
+        }
+        if (x1 >= hres) {
             x1 = hres - 1;
-        if (x2 < 0)
+        }
+        if (x2 < 0) {
             x2 = 0;
-        if (x2 >= hres)
+        }
+        if (x2 >= hres) {
             x2 = hres - 1;
-        if (y1 < 0)
+        }
+        if (y1 < 0) {
             y1 = 0;
-        if (y1 >= vres)
+        }
+        if (y1 >= vres) {
             y1 = vres - 1;
-        if (y2 < 0)
+        }
+        if (y2 < 0) {
             y2 = 0;
-        if (y2 >= vres)
+        }
+        if (y2 >= vres) {
             y2 = vres - 1;
+        }
         define_region_spi(x1, y1, x2, y2, 1);
         i = x2 - x1 + 1;
-        i *= 3;
-        p = lcd_buffer;
-        col[0] = (c >> 16);
-        col[1] = (c >> 8) & 0xFF;
-        col[2] = (c & 0xFF);
-        for (t = 0; t < i; t += 3) {
-            p[t] = col[0];
-            p[t + 1] = col[1];
-            p[t + 2] = col[2];
+        i *= 2;
+        for (t = 0; t < i; t += 2) {
+            p[t] = buffer[0];
+            p[t + 1] = buffer[1];
         }
         for (y = y1; y <= y2; y++) {
             spi_write_fast(PICO_LCD_SPI_MOD, p, i);
@@ -213,18 +201,17 @@ void lcd_draw_rect(int x1, int y1, int x2, int y2, int c) {
     lcd_spi_raise_cs();
 }
 
-void lcd_print_char(char c, int fc, int bc, int x, int y, bool underline) {
+void lcd_print_char(char c, COLOR_TYPE fc, COLOR_TYPE bc, int x, int y, bool underline) {
     const unsigned char *char_buf;
-    int scale = 0x01;
 
     if (c < font_metadata.ascii_code_min || c > font_metadata.ascii_code_max) {
-        lcd_draw_rect(x, y, x + (font_metadata.char_width * scale), y + (font_metadata.char_height * scale), bc);
+        lcd_draw_rect(x, y, x + font_metadata.char_width, y + font_metadata.char_height, bc);
 
         return;
     }
 
     char_buf = font + (int)(((c - font_metadata.ascii_code_min) * font_metadata.char_height * font_metadata.char_width) / 8);
-    lcd_draw_bitmap(x, y, font_metadata.char_width, font_metadata.char_height, scale, fc, bc, char_buf);
+    lcd_draw_bitmap(x, y, font_metadata.char_width, font_metadata.char_height, fc, bc, char_buf);
     if (underline) {
         const int ypos = y + font_metadata.char_height - 1;
         lcd_draw_rect(x, ypos, x + font_metadata.char_width - 1, ypos, fc);
@@ -436,7 +423,8 @@ void lcd_init() {
     spi_write_data(0x48);          // MX, BGR
 
     spi_write_command(0x3A); // Pixel Interface Format
-    spi_write_data(0x66);    // 18 bit colour for SPI
+    // spi_write_data(0x66);    // 18 bit color for SPI
+    spi_write_data(0x05); // 16 bit color for SPI
 
     spi_write_command(0xB0); // Interface Mode Control
     spi_write_data(0x00);
@@ -473,4 +461,9 @@ void lcd_init() {
 
     spi_write_command(TFT_MADCTL);
     spi_write_cd(ILI9488_MEMCONTROL, 1, ILI9488_Portrait);
+}
+
+static inline const void color_to_buffer(uint16_t color, unsigned char *buffer) {
+    buffer[0] = (unsigned char)((color >> 8) & 0xFF); // High-Byte (MSB)
+    buffer[1] = (unsigned char)(color & 0xFF);        // Low-Byte  (LSB)
 }

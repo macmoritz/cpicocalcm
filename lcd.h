@@ -2,6 +2,7 @@
 #ifndef LCDSPI_H
 #define LCDSPI_H
 #include <hardware/spi.h>
+#include <stdint.h>
 
 // #define LCD_SPI_SPEED 25000000
 #define LCD_SPI_SPEED SYS_CLK_HZ
@@ -42,31 +43,17 @@
 
 #define ORIENT_NORMAL 0
 
-#define RGB(red, green, blue) (unsigned int)(((red & 0b11111111) << 16) | ((green & 0b11111111) << 8) | (blue & 0b11111111))
-#define WHITE RGB(255, 255, 255)  // 0b1111
-#define YELLOW RGB(255, 255, 0)   // 0b1110
-#define LILAC RGB(255, 128, 255)  // 0b1101
-#define BROWN RGB(255, 128, 0)    // 0b1100
-#define FUCHSIA RGB(255, 64, 255) // 0b1011
-#define RUST RGB(255, 64, 0)      // 0b1010
-#define MAGENTA RGB(255, 0, 255)  // 0b1001
-#define RED RGB(255, 0, 0)        // 0b1000
-#define CYAN RGB(0, 255, 255)     // 0b0111
-#define GREEN RGB(0, 255, 0)      // 0b0110
-#define CERULEAN RGB(0, 128, 255) // 0b0101
-#define MIDGREEN RGB(0, 128, 0)   // 0b0100
-#define COBALT RGB(0, 64, 255)    // 0b0011
-#define MYRTLE RGB(0, 64, 0)      // 0b0010
-#define BLUE RGB(0, 0, 255)       // 0b0001
-#define BLACK RGB(0, 0, 0)        // 0b0000
-#define BROWN RGB(255, 128, 0)
-#define GRAY RGB(128, 128, 128)
-#define LITEGRAY RGB(210, 210, 210)
-#define ORANGE RGB(0xff, 0xA5, 0)
-#define PINK RGB(0xFF, 0xA0, 0xAB)
-#define GOLD RGB(0xFF, 0xD7, 0x00)
-#define SALMON RGB(0xFA, 0x80, 0x72)
-#define BEIGE RGB(0xF5, 0xF5, 0xDC)
+#define COLOR_TYPE uint16_t
+// #define RGB(red, green, blue) (unsigned int)(((red & 0b11111111) << 16) | ((green & 0b11111111) << 8) | (blue & 0b11111111))
+#define RGB565(red, green, blue) (COLOR_TYPE)(((red & 0x1f) << 11) | ((green & 0x3f) << 5) | ((blue & 0x1f)))
+#define BLACK RGB565(0, 0, 0)
+#define BLUE RGB565(0, 0, 31)
+#define RED RGB565(31, 0, 0)
+#define MAGENTA RGB565(31, 0, 31)
+#define GREEN RGB565(0, 63, 0)
+#define CYAN RGB565(0, 63, 31)
+#define YELLOW RGB565(31, 63, 0)
+#define WHITE RGB565(31, 63, 31)
 
 #define PORTCLR 1
 #define PORTSET 2
@@ -135,7 +122,7 @@ extern void pin_set_bit(int pin, unsigned int offset);
  * @param x Vertical coordinate
  * @param y Horizontal coordinate
  */
-extern void lcd_print_char(char c, int fc, int bc, int x, int y, bool underline);
+extern void lcd_print_char(char c, COLOR_TYPE fc, COLOR_TYPE bc, int x, int y, bool underline);
 /**
  * @brief Draw a filled rectangle
  *
@@ -145,7 +132,7 @@ extern void lcd_print_char(char c, int fc, int bc, int x, int y, bool underline)
  * @param y2 Bottom-right horizontal coordinate
  * @param c Fill color
  */
-extern void lcd_draw_rect(int x1, int y1, int x2, int y2, int c);
+extern void lcd_draw_rect(int x1, int y1, int x2, int y2, COLOR_TYPE c);
 /**
  * @brief Print the bitmap of a char on the video output
  *
@@ -158,6 +145,8 @@ extern void lcd_draw_rect(int x1, int y1, int x2, int y2, int c);
  * @param bc background color
  * @param bitmap pointer to the bitmap
  */
-extern void lcd_draw_bitmap(int x1, int y1, int width, int height, int scale, int fc, int bc, const unsigned char *bitmap);
+extern void lcd_draw_bitmap(int x1, int y1, int width, int height, COLOR_TYPE fc, COLOR_TYPE bc, const unsigned char *bitmap);
+
+static inline const void color_to_buffer(uint16_t color, unsigned char *buffer);
 
 #endif

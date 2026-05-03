@@ -34,18 +34,19 @@ int main() {
 
     lcd_init();
     lcd_clear();
-    // const uint64_t time = to_us_since_boot(get_absolute_time());
-    // const int colors[8] = {BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE};
-    // const char chars[8] = {'R', 'A', 'I', 'N', 'B', 'O', 'W', '!'};
-    // for (int b = 0; b < 8; b++) {
-    //     for (int f = 0; f < 8; f++) {
-    //         lcd_print_char(chars[f], colors[f], colors[b], f * 8, b * 8, false);
-    //     }
-    // }
+    const uint64_t time = to_us_since_boot(get_absolute_time());
+    const int colors[8] = {BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE};
+    const char chars[8] = {'R', 'A', 'I', 'N', 'B', 'O', 'W', '!'};
+    for (int b = 0; b < 8; b++) {
+        for (int f = 0; f < 8; f++) {
+            lcd_print_char(chars[f], colors[f], colors[b], f * 8, b * 8, false);
+        }
+    }
 
-    // // draw_rect_spi(0, 0, 320, 320, COBALT);
-    // const int64_t delta = absolute_time_diff_us(time, to_us_since_boot(get_absolute_time()));
-    // printf("vBlank stuff took %lld us\n", delta);
+    // draw_rect_spi(0, 0, 320, 320, COBALT);
+    const int64_t delta = absolute_time_diff_us(time, to_us_since_boot(get_absolute_time()));
+    printf("vBlank stuff took %lld us\n", delta);
+    lcd_clear();
 
     screen_delay = 0;            // no delay, exit emulation directly
     conf_command = "./main.com"; // Does not get loaded anyway
