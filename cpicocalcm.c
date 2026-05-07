@@ -14,6 +14,7 @@
 #include "tnylpo/tnylpo.h"
 #include <hardware/gpio.h>
 #include <pico/aon_timer.h>
+#include <pico/multicore.h>
 #include <pico/stdio.h>
 #include <pico/stdlib.h>
 #include <pico/time.h>
@@ -21,6 +22,26 @@
 #include <stdio.h>
 
 #define TPA_START 0x0100
+
+// This runs on the second core and renders the video content as well as sending the rendered content to the lcd
+void lcdJob() {
+    lcd_init();
+    lcd_clear();
+    uint64_t frameCounter = 0;
+    uint64_t frameStart = to_us_since_boot(get_absolute_time());
+    while (1) {
+        lcd_update(curscr);
+        frameCounter++;
+        if (frameCounter == 100) {
+            const int64_t delta = absolute_time_diff_us(frameStart, to_us_since_boot(get_absolute_time()));
+            const double averageTimePerFrameUs = (double)delta / (double)frameCounter;
+            const double framesPerSecond = 1000000 / averageTimePerFrameUs;
+            printf("Frames per Second: ~%.2f\n", framesPerSecond);
+            frameStart = to_us_since_boot(get_absolute_time());
+            frameCounter = 0;
+        }
+    }
+}
 
 int main() {
     stdio_init_all();
@@ -32,26 +53,10 @@ int main() {
     picocalc_print_version();
     picocalc_read_battery();
 
-    lcd_init();
-    lcd_clear();
-    const uint64_t time = to_us_since_boot(get_absolute_time());
-    const int colors[8] = {BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE};
-    const char chars[8] = {'R', 'A', 'I', 'N', 'B', 'O', 'W', '!'};
-    for (int b = 0; b < 8; b++) {
-        for (int f = 0; f < 8; f++) {
-            lcd_print_char(chars[f], colors[f], colors[b], f * 8, b * 8, false);
-        }
-    }
-
-    // draw_rect_spi(0, 0, 320, 320, COBALT);
-    const int64_t delta = absolute_time_diff_us(time, to_us_since_boot(get_absolute_time()));
-    printf("vBlank stuff took %lld us\n", delta);
-    lcd_clear();
-
     screen_delay = 0;            // no delay, exit emulation directly
     conf_command = "./main.com"; // Does not get loaded anyway
     conf_interactive = true;
-    conf_background = COLOR_BLUE;
+    conf_background = COLOR_BLACK;
     conf_foreground = COLOR_WHITE;
     int status = read_config(NULL); // needed to set charset, by default VT52
     if (status) {
@@ -79,6 +84,7 @@ int main() {
         printf("cpu_init failed\n");
         return 1;
     }
+    multicore_launch_core1(lcdJob);
     cpu_run();
     status = cpu_exit();
     if (status) {
@@ -103,5 +109,6 @@ int main() {
     // aon_timer_get_time_calendar(&tm);
     // printf("tm sec: %d\n", tm.tm_sec);
 
+    multicore_reset_core1();
     exit(0);
 }

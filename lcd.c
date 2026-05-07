@@ -2,8 +2,11 @@
 #include <hardware/platform_defs.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
 
+#include <hardware/dma.h>
 #include <hardware/gpio.h>
 #include <hardware/spi.h>
 #include <hardware/timer.h>
@@ -11,359 +14,231 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/_intsup.h>
+#include <sys/_types.h>
 #include <wchar.h>
 
 #include "font.h"
 #include "lcd.h"
+#include "ncurses.h"
 
 static short hres = 0;
 static short vres = 0;
-unsigned char lcd_buffer[320 * 3] = {0}; // 1440 = 480*3, 320*3 = 960
+uint spi_tx_dma;
+dma_channel_config spi_tx_dma_cfg;
 
-void __not_in_flash_func(spi_write_fast)(spi_inst_t *spi, const uint8_t *src, size_t len) {
-    // Write to TX FIFO whilst ignoring RX, then clean up afterward. When RX
-    // is full, PL022 inhibits RX pushes, and sets a sticky flag on
-    // push-on-full, but continues shifting. Safe if SSPIMSC_RORIM is not set.
-    for (size_t i = 0; i < len; ++i) {
-        while (!spi_is_writable(spi))
-            tight_loop_contents();
-        spi_get_hw(spi)->dr = (uint32_t)src[i];
-    }
+static inline void lcd_define_region16(int xstart, int ystart, int xend, int yend) {
+    uint16_t coord[2];
+
+    coord[0] = (uint16_t)xstart;
+    coord[1] = (uint16_t)xend;
+    spi_write_command16(ILI9488_COLADDRSET, coord, 2);
+
+    coord[0] = (uint16_t)ystart;
+    coord[1] = (uint16_t)yend;
+    spi_write_command16(ILI9488_PAGEADDRSET, coord, 2);
 }
 
-void __not_in_flash_func(spi_finish)(spi_inst_t *spi) {
-    // Drain RX FIFO, then wait for shifting to finish (which may be *after*
-    // TX FIFO drains), then drain RX FIFO again
-    while (spi_is_readable(spi))
-        (void)spi_get_hw(spi)->dr;
-    while (spi_get_hw(spi)->sr & SPI_SSPSR_BSY_BITS)
-        tight_loop_contents();
-    while (spi_is_readable(spi))
-        (void)spi_get_hw(spi)->dr;
-
-    // Don't leave overrun flag set
-    spi_get_hw(spi)->icr = SPI_SSPICR_RORIC_BITS;
-}
-
-void define_region_spi(int xstart, int ystart, int xend, int yend, int rw) {
-    unsigned char coord[4];
-    lcd_spi_lower_cs();
-    gpio_put(PICO_LCD_DC, 0);
-    hw_send_spi(&(uint8_t){ILI9488_COLADDRSET}, 1);
-    gpio_put(PICO_LCD_DC, 1);
-    coord[0] = xstart >> 8;
-    coord[1] = xstart;
-    coord[2] = xend >> 8;
-    coord[3] = xend;
-    hw_send_spi(coord, 4); //		HAL_SPI_Transmit(&hspi3,coord,4,500);
-    gpio_put(PICO_LCD_DC, 0);
-    hw_send_spi(&(uint8_t){ILI9488_PAGEADDRSET}, 1);
-    gpio_put(PICO_LCD_DC, 1);
-    coord[0] = ystart >> 8;
-    coord[1] = ystart;
-    coord[2] = yend >> 8;
-    coord[3] = yend;
-    hw_send_spi(coord, 4); //		HAL_SPI_Transmit(&hspi3,coord,4,500);
-    gpio_put(PICO_LCD_DC, 0);
-    if (rw) {
-        hw_send_spi(&(uint8_t){ILI9488_MEMORYWRITE}, 1);
-    } else {
-        hw_send_spi(&(uint8_t){ILI9488_RAMRD}, 1);
+static inline void lcd_draw_rect(int x1, int y1, int w, int h, COLOR_TYPE color) {
+    // make sure the coordinates are kept within the display area
+    int x2 = x1 + w - 1;
+    int y2 = y1 + h - 1;
+    const uint32_t pixels = w * h;
+    if (x1 < 0) {
+        x1 = 0;
     }
-    gpio_put(PICO_LCD_DC, 1);
-}
-
-void lcd_draw_bitmap(int x1, int y1, int width, int height, COLOR_TYPE fc, COLOR_TYPE bc, const unsigned char *bitmap) {
-    int i, j, k, m, n;
-    unsigned char foregroundBuffer[2], backgroundBuffer[2];
-    int vertCoord, horizCoord, XStart, XEnd, YEnd;
-    char *p = 0;
-
-    color_to_buffer(fc, foregroundBuffer);
-    color_to_buffer(bc, backgroundBuffer);
-
-    if (x1 >= hres || y1 >= vres || x1 + width < 0 || y1 + height < 0) {
-        return;
+    if (x1 >= hres) {
+        x1 = hres - 1;
     }
-    // adjust when part of the bitmap is outside the displayable coordinates
-    vertCoord = y1;
+    if (x2 < 0) {
+        x2 = 0;
+    }
+    if (x2 >= hres) {
+        x2 = hres - 1;
+    }
     if (y1 < 0) {
-        y1 = 0; // the y coord is above the top of the screen
+        y1 = 0;
     }
-    XStart = x1;
-    if (XStart < 0) {
-        XStart = 0; // the x coord is to the left of the left marginn
+    if (y1 >= vres) {
+        y1 = vres - 1;
     }
-    XEnd = x1 + width - 1;
-    if (XEnd >= hres) {
-        XEnd = hres - 1; // the width of the bitmap will extend beyond the right margin
+    if (y2 < 0) {
+        y2 = 0;
     }
-    YEnd = y1 + height - 1;
-    if (YEnd >= vres) {
-        YEnd = vres - 1; // the height of the bitmap will extend beyond the bottom margin
+    if (y2 >= vres) {
+        y2 = vres - 1;
+    }
+    lcd_define_region16(x1, y1, x2, y2);
+
+    spi_write_command16(ILI9488_MEMORYWRITE, NULL, 0);
+    channel_config_set_read_increment(&spi_tx_dma_cfg, false);
+    dma_channel_configure(
+        spi_tx_dma,
+        &spi_tx_dma_cfg,
+        &spi_get_hw(PICO_LCD_SPI_MOD)->dr,
+        &color,
+        pixels,
+        true);
+
+    dma_channel_wait_for_finish_blocking(spi_tx_dma);
+
+    while (spi_is_busy(PICO_LCD_SPI_MOD)) {
+        tight_loop_contents();
     }
 
-    define_region_spi(XStart, y1, XEnd, YEnd, 1);
-
-    n = 0;
-    for (i = 0; i < height; i++) { // step thru the font scan line by line
-        if (vertCoord++ < 0) {
-            continue; // we are above the top of the screen
-        }
-        if (vertCoord > vres) { // we have extended beyond the bottom of the screen
-            lcd_spi_raise_cs(); // set CS high
-            return;
-        }
-        horizCoord = x1;
-        for (k = 0; k < width; k++) { // step through each bit in a scan line
-            if (horizCoord++ < 0) {
-                continue; // we have not reached the left margin
-            }
-            if (horizCoord > hres) {
-                continue; // we are beyond the right margin
-            }
-            if ((bitmap[((i * width) + k) / 8] >> (((height * width) - ((i * width) + k) - 1) % 8)) & 1) {
-                hw_send_spi(foregroundBuffer, 2);
-            } else {
-                hw_send_spi(backgroundBuffer, 2);
-            }
-            n += 3;
-        }
-    }
-    lcd_spi_raise_cs(); // set CS high
+    channel_config_set_read_increment(&spi_tx_dma_cfg, true);
+    dma_channel_set_config(spi_tx_dma, &spi_tx_dma_cfg, false);
 }
 
-void lcd_draw_rect(int x1, int y1, int x2, int y2, COLOR_TYPE c) {
-    unsigned char buffer[2];
-    color_to_buffer(c, buffer);
+static inline void render_line(WINDOW *screen, int line, COLOR_TYPE *buffer) {
+    const cchar_t *content;
+    const unsigned char *glyph;
+    COLOR_TYPE fc, bc;
 
-    if (x1 == x2 && y1 == y2) {
-        if (x1 < 0)
-            return;
-        if (x1 >= hres)
-            return;
-        if (y1 < 0)
-            return;
-        if (y1 >= vres)
-            return;
-        define_region_spi(x1, y1, x2, y2, 1);
-        hw_send_spi(buffer, 2);
-    } else {
-        int i, t, y;
-        unsigned char *p = lcd_buffer;
-        // make sure the coordinates are kept within the display area
-        if (x2 <= x1) {
-            t = x1;
-            x1 = x2;
-            x2 = t;
+    for (int col = 0; col < screen->cols; col++) {
+        size_t baseX = col * font_metadata.char_width;
+        content = &screen->content[line * screen->cols + col];
+        glyph = font + (int)((content->content - font_metadata.ascii_code_min) * font_metadata.char_height);
+        fc = RGB_COLOR[content->foreground];
+        bc = RGB_COLOR[content->background];
+
+        const bool isValidChar = content->content >= font_metadata.ascii_code_min && content->content <= font_metadata.ascii_code_max;
+        const bool isCursorVisible = screen->cursorVisibility != invisible && screen->curx == col && screen->cury == line;
+        if (!isValidChar || (screen->blinkstate && (content->blink || isCursorVisible))) {
+            const COLOR_TYPE color = isCursorVisible ? fc : bc;
+            for (int y = 0; y < font_metadata.char_height; y++) {
+                for (int x = 0; x < font_metadata.char_width; x++) {
+                    const size_t dst = y * LCD_WIDTH + baseX + x;
+                    buffer[dst] = color;
+                }
+            }
+            continue;
         }
-        if (y2 <= y1) {
-            t = y1;
-            y1 = y2;
-            y2 = t;
+
+        for (int y = 0; y < font_metadata.char_height; y++) {
+            uint8_t glyphRow = glyph[y];
+            if (content->bold) {
+                glyphRow |= (glyphRow >> 1);
+            }
+
+            for (int x = 0; x < font_metadata.char_width; x++) {
+                const size_t dst = y * LCD_WIDTH + baseX + x;
+                bool pixelSet = (glyphRow & (0x80 >> x)) != 0;
+                buffer[dst] = pixelSet ? fc : bc;
+            }
         }
-        if (x1 < 0) {
-            x1 = 0;
-        }
-        if (x1 >= hres) {
-            x1 = hres - 1;
-        }
-        if (x2 < 0) {
-            x2 = 0;
-        }
-        if (x2 >= hres) {
-            x2 = hres - 1;
-        }
-        if (y1 < 0) {
-            y1 = 0;
-        }
-        if (y1 >= vres) {
-            y1 = vres - 1;
-        }
-        if (y2 < 0) {
-            y2 = 0;
-        }
-        if (y2 >= vres) {
-            y2 = vres - 1;
-        }
-        define_region_spi(x1, y1, x2, y2, 1);
-        i = x2 - x1 + 1;
-        i *= 2;
-        for (t = 0; t < i; t += 2) {
-            p[t] = buffer[0];
-            p[t + 1] = buffer[1];
-        }
-        for (y = y1; y <= y2; y++) {
-            spi_write_fast(PICO_LCD_SPI_MOD, p, i);
+
+        if (content->underline) {
+            size_t y = font_metadata.char_height - 1;
+            size_t row = y * LCD_WIDTH;
+            for (size_t xi = 0; xi < font_metadata.char_width; xi++) {
+                buffer[row + baseX + xi] = fc;
+            }
         }
     }
-    spi_finish(PICO_LCD_SPI_MOD);
-    lcd_spi_raise_cs();
 }
 
-void lcd_print_char(char c, COLOR_TYPE fc, COLOR_TYPE bc, int x, int y, bool underline) {
-    const unsigned char *char_buf;
+// TODO: try to use two chained DMA buffers and wait at the end
+void lcd_update(WINDOW *screen) {
+    const size_t bufferSize = LCD_WIDTH * font_metadata.char_height;
 
-    if (c < font_metadata.ascii_code_min || c > font_metadata.ascii_code_max) {
-        lcd_draw_rect(x, y, x + font_metadata.char_width, y + font_metadata.char_height, bc);
-
+    COLOR_TYPE *buffer;
+    COLOR_TYPE *buffer0 = malloc(bufferSize * sizeof(COLOR_TYPE));
+    COLOR_TYPE *buffer1 = malloc(bufferSize * sizeof(COLOR_TYPE));
+    if (!buffer0 || !buffer1) {
+        free(buffer0);
+        free(buffer1);
         return;
     }
 
-    char_buf = font + (int)(((c - font_metadata.ascii_code_min) * font_metadata.char_height * font_metadata.char_width) / 8);
-    lcd_draw_bitmap(x, y, font_metadata.char_width, font_metadata.char_height, fc, bc, char_buf);
-    if (underline) {
-        const int ypos = y + font_metadata.char_height - 1;
-        lcd_draw_rect(x, ypos, x + font_metadata.char_width - 1, ypos, fc);
+    dma_channel_set_write_addr(spi_tx_dma, &spi_get_hw(PICO_LCD_SPI_MOD)->dr, false);
+    lcd_define_region16(0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1);
+    spi_write_command16(ILI9488_MEMORYWRITE, NULL, 0);
+
+    for (int line = 0; line < screen->lines; line++) {
+        buffer = (line & 1) ? buffer0 : buffer1;
+        render_line(screen, line, buffer);
+
+        if (line > 0) {
+            dma_channel_wait_for_finish_blocking(spi_tx_dma);
+            while (spi_is_busy(PICO_LCD_SPI_MOD)) {
+                tight_loop_contents();
+            }
+        }
+
+        dma_channel_set_read_addr(spi_tx_dma, buffer, false);
+        dma_channel_set_trans_count(spi_tx_dma, bufferSize, true);
     }
+
+    free(buffer0);
+    free(buffer1);
 }
 
 void lcd_clear() {
     lcd_draw_rect(0, 0, hres - 1, vres - 1, BLACK);
 }
 
-void hw_read_spi(unsigned char *buff, int cnt) {
-    spi_read_blocking(PICO_LCD_SPI_MOD, 0xff, buff, cnt);
-}
-
-void hw_send_spi(const unsigned char *buff, int cnt) {
-    spi_write_blocking(PICO_LCD_SPI_MOD, buff, cnt);
-}
-
-void pin_set_bit(int pin, unsigned int offset) {
-    switch (offset) {
-    case LATCLR:
-        gpio_set_pulls(pin, false, false);
-        gpio_pull_down(pin);
-        gpio_put(pin, 0);
-        return;
-    case LATSET:
-        gpio_set_pulls(pin, false, false);
-        gpio_pull_up(pin);
-        gpio_put(pin, 1);
-        return;
-    case LATINV:
-        gpio_xor_mask(1 << pin);
-        return;
-    case TRISSET:
-        gpio_set_dir(pin, GPIO_IN);
-        sleep_us(2);
-        return;
-    case TRISCLR:
-        gpio_set_dir(pin, GPIO_OUT);
-        gpio_set_drive_strength(pin, GPIO_DRIVE_STRENGTH_12MA);
-        sleep_us(2);
-        return;
-    case CNPUSET:
-        gpio_set_pulls(pin, true, false);
-        return;
-    case CNPDSET:
-        gpio_set_pulls(pin, false, true);
-        return;
-    case CNPUCLR:
-    case CNPDCLR:
-        gpio_set_pulls(pin, false, false);
-        return;
-    case ODCCLR:
-        gpio_set_dir(pin, GPIO_OUT);
-        gpio_put(pin, 0);
-        sleep_us(2);
-        return;
-    case ODCSET:
-        gpio_set_pulls(pin, true, false);
-        gpio_set_dir(pin, GPIO_IN);
-        sleep_us(2);
-        return;
-    case ANSELCLR:
-        gpio_set_function(pin, GPIO_FUNC_SIO);
-        gpio_set_dir(pin, GPIO_IN);
-        return;
-    default:
-        break;
-        // printf("Unknown pin_set_bit command");
-    }
-}
-
 void lcd_reset_controller(void) {
-    pin_set_bit(PICO_LCD_RST, LATSET);
+    gpio_set_pulls(PICO_LCD_RST, true, false);
+    gpio_put(PICO_LCD_RST, 1);
     sleep_us(10000);
-    pin_set_bit(PICO_LCD_RST, LATCLR);
+    gpio_set_pulls(PICO_LCD_RST, false, true);
+    gpio_put(PICO_LCD_RST, 0);
     sleep_us(10000);
-    pin_set_bit(PICO_LCD_RST, LATSET);
+    gpio_set_pulls(PICO_LCD_RST, true, false);
+    gpio_put(PICO_LCD_RST, 1);
     sleep_us(200000);
 }
 
-void lcd_spi_raise_cs(void) {
-    gpio_put(PICO_LCD_CS, 1);
-}
-
-void lcd_spi_lower_cs(void) {
-    gpio_put(PICO_LCD_CS, 0);
-}
-
-void spi_write_data(unsigned char data) {
-    gpio_put(PICO_LCD_DC, 1);
-    lcd_spi_lower_cs();
-    hw_send_spi(&data, 1);
-    lcd_spi_raise_cs();
-}
-
-void spi_write_data24(uint32_t data) {
-    uint8_t data_array[3];
-    data_array[0] = data >> 16;
-    data_array[1] = (data >> 8) & 0xFF;
-    data_array[2] = data & 0xFF;
-
-    gpio_put(PICO_LCD_DC, 1); // Data mode
-    gpio_put(PICO_LCD_CS, 0);
-    spi_write_blocking(PICO_LCD_SPI_MOD, data_array, 3);
-    gpio_put(PICO_LCD_CS, 1);
-}
-
-void spi_write_command(unsigned char data) {
+void spi_write_command(const uint8_t command, const uint8_t *args, size_t len_args) {
     gpio_put(PICO_LCD_DC, 0);
-    gpio_put(PICO_LCD_CS, 0);
+    spi_write_blocking(PICO_LCD_SPI_MOD, &command, 1);
+    gpio_put(PICO_LCD_DC, 1);
 
-    spi_write_blocking(PICO_LCD_SPI_MOD, &data, 1);
-
-    gpio_put(PICO_LCD_CS, 1);
+    if (args != NULL) {
+        gpio_put(PICO_LCD_DC, 1);
+        spi_write_blocking(PICO_LCD_SPI_MOD, args, len_args);
+    }
 }
 
-void spi_write_cd(unsigned char command, int data, ...) {
-    int i;
-    va_list ap;
-    va_start(ap, data);
-    spi_write_command(command);
-    for (i = 0; i < data; i++) {
-        spi_write_data((char)va_arg(ap, int));
+void spi_write_command16(uint8_t command, const uint16_t *args, size_t len_args) {
+    // 0x00 interpreted as a command is a NO-OP.
+    const uint16_t cmd16 = (uint16_t)command;
+
+    gpio_put(PICO_LCD_DC, 0);
+    spi_write16_blocking(PICO_LCD_SPI_MOD, &cmd16, 1);
+    gpio_put(PICO_LCD_DC, 1);
+
+    if (args != NULL) {
+        spi_write16_blocking(PICO_LCD_SPI_MOD, args, len_args);
     }
-    va_end(ap);
 }
 
 void lcd_init() {
     // init GPIO
-    gpio_init(PICO_LCD_SCK);
-    gpio_init(PICO_LCD_TX);
-    gpio_init(PICO_LCD_RX);
     gpio_init(PICO_LCD_CS);
     gpio_init(PICO_LCD_DC);
     gpio_init(PICO_LCD_RST);
 
-    gpio_set_dir(PICO_LCD_SCK, GPIO_OUT);
-    gpio_set_dir(PICO_LCD_TX, GPIO_OUT);
-    // gpio_set_dir(PICO_LCD_RX, GPIO_IN);
     gpio_set_dir(PICO_LCD_CS, GPIO_OUT);
     gpio_set_dir(PICO_LCD_DC, GPIO_OUT);
     gpio_set_dir(PICO_LCD_RST, GPIO_OUT);
 
     // init SPI
     const int baudrate = spi_init(PICO_LCD_SPI_MOD, LCD_SPI_SPEED);
+    printf("SPI baudrate: %d\n", baudrate);
+    spi_set_format(PICO_LCD_SPI_MOD, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
     gpio_set_function(PICO_LCD_SCK, GPIO_FUNC_SPI);
     gpio_set_function(PICO_LCD_TX, GPIO_FUNC_SPI);
-    gpio_set_function(PICO_LCD_RX, GPIO_FUNC_SPI);
-    gpio_set_input_hysteresis_enabled(PICO_LCD_RX, true);
+    // gpio_set_function(PICO_LCD_RX, GPIO_FUNC_SPI);
 
-    printf("SPI baudrate: %d\n", baudrate);
+    spi_get_hw(PICO_LCD_SPI_MOD)->dmacr = SPI_SSPDMACR_TXDMAE_BITS;
+    spi_tx_dma = dma_claim_unused_channel(true);
+    spi_tx_dma_cfg = dma_channel_get_default_config(spi_tx_dma);
+    channel_config_set_transfer_data_size(&spi_tx_dma_cfg, DMA_SIZE_16);
+    channel_config_set_dreq(&spi_tx_dma_cfg, spi_get_dreq(PICO_LCD_SPI_MOD, true));
+    channel_config_set_write_increment(&spi_tx_dma_cfg, false);
+    channel_config_set_read_increment(&spi_tx_dma_cfg, true);
+    dma_channel_set_config(spi_tx_dma, &spi_tx_dma_cfg, false);
 
     gpio_put(PICO_LCD_CS, 1);
     gpio_put(PICO_LCD_RST, 1);
@@ -373,97 +248,109 @@ void lcd_init() {
     hres = 320;
     vres = 320;
 
-    spi_write_command(0xE0); // Positive Gamma Control
-    spi_write_data(0x00);
-    spi_write_data(0x03);
-    spi_write_data(0x09);
-    spi_write_data(0x08);
-    spi_write_data(0x16);
-    spi_write_data(0x0A);
-    spi_write_data(0x3F);
-    spi_write_data(0x78);
-    spi_write_data(0x4C);
-    spi_write_data(0x09);
-    spi_write_data(0x0A);
-    spi_write_data(0x08);
-    spi_write_data(0x16);
-    spi_write_data(0x1A);
-    spi_write_data(0x0F);
+    gpio_put(PICO_LCD_CS, 0);
+    gpio_put(PICO_LCD_DC, 1);
 
-    spi_write_command(0XE1); // Negative Gamma Control
-    spi_write_data(0x00);
-    spi_write_data(0x16);
-    spi_write_data(0x19);
-    spi_write_data(0x03);
-    spi_write_data(0x0F);
-    spi_write_data(0x05);
-    spi_write_data(0x32);
-    spi_write_data(0x45);
-    spi_write_data(0x46);
-    spi_write_data(0x04);
-    spi_write_data(0x0E);
-    spi_write_data(0x0D);
-    spi_write_data(0x35);
-    spi_write_data(0x37);
-    spi_write_data(0x0F);
+    uint8_t init[15];
+    // Positive Gamma Control
+    init[0] = 0x00;
+    init[1] = 0x03;
+    init[2] = 0x09;
+    init[3] = 0x08;
+    init[4] = 0x16;
+    init[5] = 0x0A;
+    init[6] = 0x3F;
+    init[7] = 0x78;
+    init[8] = 0x4C;
+    init[9] = 0x09;
+    init[10] = 0x0A;
+    init[11] = 0x08;
+    init[12] = 0x16;
+    init[13] = 0x1A;
+    init[14] = 0x0F;
+    spi_write_command(0xE0, init, 15);
 
-    spi_write_command(0XC0); // Power Control 1
-    spi_write_data(0x17);
-    spi_write_data(0x15);
+    // Negative Gamma Control
+    init[0] = 0x00;
+    init[1] = 0x16;
+    init[2] = 0x19;
+    init[3] = 0x03;
+    init[4] = 0x0F;
+    init[5] = 0x05;
+    init[6] = 0x32;
+    init[7] = 0x45;
+    init[8] = 0x46;
+    init[9] = 0x04;
+    init[10] = 0x0E;
+    init[11] = 0x0D;
+    init[12] = 0x35;
+    init[13] = 0x37;
+    init[14] = 0x0F;
+    spi_write_command(0xE1, init, 15);
 
-    spi_write_command(0xC1); // Power Control 2
-    spi_write_data(0x41);
+    // Power Control 1
+    init[0] = 0x17;
+    init[1] = 0x15;
+    spi_write_command(0xC0, init, 2);
 
-    spi_write_command(0xC5); // VCOM Control
-    spi_write_data(0x00);
-    spi_write_data(0x12);
-    spi_write_data(0x80);
+    // Power Control 2
+    init[0] = 0x41;
+    spi_write_command(0xC1, init, 1);
 
-    spi_write_command(TFT_MADCTL); // Memory Access Control
-    spi_write_data(0x48);          // MX, BGR
+    // VCOM Control
+    init[0] = 0x00;
+    init[1] = 0x12;
+    init[2] = 0x80;
+    spi_write_command(0xC5, init, 3);
 
-    spi_write_command(0x3A); // Pixel Interface Format
-    // spi_write_data(0x66);    // 18 bit color for SPI
-    spi_write_data(0x05); // 16 bit color for SPI
+    // Pixel Interface Format
+    init[0] = 0x55; // 16 bit color for SPI
+    spi_write_command(0x3A, init, 1);
 
-    spi_write_command(0xB0); // Interface Mode Control
-    spi_write_data(0x00);
+    // Interface Mode Control
+    init[0] = 0x00; // SPI_EN = “0”, DIN and DOUT pins are used for 3/4 wire serial interface.
+    spi_write_command(0xB0, init, 1);
 
-    spi_write_command(0xB1); // Frame Rate Control
-    spi_write_data(0xA0);
+    // Frame Rate Control
+    init[0] = 0xA0;
+    spi_write_command(0xB1, init, 1);
 
-    spi_write_command(TFT_INVON);
+    spi_write_command(TFT_INVON, NULL, 0);
 
-    spi_write_command(0xB4); // Display Inversion Control
-    spi_write_data(0x02);
+    // Display Inversion Control
+    init[0] = 0x02;
+    spi_write_command(0xB4, init, 1);
 
-    spi_write_command(0xB6); // Display Function Control
-    spi_write_data(0x02);
-    spi_write_data(0x02);
-    spi_write_data(0x3B);
+    // Display Function Control
+    init[0] = 0x02;
+    init[1] = 0x02;
+    init[2] = 0x3B;
+    spi_write_command(0xB6, init, 3);
 
-    spi_write_command(0xB7); // Entry Mode Set
-    spi_write_data(0xC6);
-    spi_write_command(0xE9);
-    spi_write_data(0x00);
+    // Entry Mode Set
+    init[0] = 0xC6;
+    init[1] = 0xE9;
+    init[2] = 0x00;
+    spi_write_command(0xB7, init, 3);
 
-    spi_write_command(0xF7); // Adjust Control 3
-    spi_write_data(0xA9);
-    spi_write_data(0x51);
-    spi_write_data(0x2C);
-    spi_write_data(0x82);
+    // Adjust Control 3
+    init[0] = 0xA9;
+    init[1] = 0x51;
+    init[2] = 0x2C;
+    init[3] = 0x82;
+    spi_write_command(0xF7, init, 4);
 
-    spi_write_command(TFT_SLPOUT); // Exit Sleep
+    // Exit Sleep
+    spi_write_command(TFT_SLPOUT, NULL, 0);
     sleep_ms(120);
 
-    spi_write_command(TFT_DISPON); // Display on
+    // Display on
+    spi_write_command(TFT_DISPON, NULL, 0);
     sleep_ms(120);
 
-    spi_write_command(TFT_MADCTL);
-    spi_write_cd(ILI9488_MEMCONTROL, 1, ILI9488_Portrait);
-}
+    // Memory Access Control
+    init[0] = ILI9488_Portrait;
+    spi_write_command(TFT_MADCTL, init, 1);
 
-static inline const void color_to_buffer(uint16_t color, unsigned char *buffer) {
-    buffer[0] = (unsigned char)((color >> 8) & 0xFF); // High-Byte (MSB)
-    buffer[1] = (unsigned char)(color & 0xFF);        // Low-Byte  (LSB)
+    spi_set_format(PICO_LCD_SPI_MOD, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
 }

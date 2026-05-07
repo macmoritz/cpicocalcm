@@ -16,7 +16,6 @@ struct repeating_timer contentBlinkTimer;
 int curs_set(int visibility) {
     curscr->prevCursorVisibility = curscr->cursorVisibility;
     curscr->cursorVisibility = visibility;
-    wrefreshCursor(curscr);
     return curscr->prevCursorVisibility;
 }
 
@@ -99,94 +98,23 @@ int wmove(WINDOW *w, int y, int x) {
     if (y >= w->cols || x >= w->lines) {
         return ERR;
     }
-    w->prevcurx = w->curx;
-    w->prevcury = w->cury;
     w->cury = y;
     w->curx = x;
-    wrefreshCursor(w);
     return OK;
-}
-
-static void wrefreshCursor(WINDOW *w) {
-    if (w == NULL) {
-        return;
-    }
-    unsigned char fontSize = font_metadata.char_width;
-    // paint over previous cursor position
-    if (w->prevcurx != -1 && w->prevcury != -1) {
-        drawContent(w, w->prevcurx, w->prevcury, false);
-        w->prevcurx = -1;
-        w->prevcury = -1;
-    }
-    // paint current cursor position with blinking
-    if (w->cursorVisibility == visible) {
-        if (!w->blinkstate) {
-            unsigned int foreground = (defined_color_pairs[1] >> COLOR_SHIFT) & (COLOR_COUNT - 1);
-            lcd_draw_rect(w->curx * fontSize, w->cury * fontSize, w->curx * fontSize + fontSize - 1, w->cury * fontSize + fontSize - 1, RGB_COLOR[foreground]);
-        } else {
-            drawContent(w, w->curx, w->cury, false);
-        }
-    }
-    if (w->cursorVisibility == very_visible) {
-        drawContent(w, w->curx, w->cury, true);
-    }
-}
-
-static void drawContent(WINDOW *w, size_t x, size_t y, bool inverted) {
-    unsigned char fontSize = font_metadata.char_width;
-    cchar_t *cchar = &w->content[y * w->cols + x];
-    int fc = RGB_COLOR[cchar->foreground];
-    int bc = RGB_COLOR[cchar->background];
-    if (inverted) {
-        int tmp = fc;
-        fc = bc;
-        bc = tmp;
-    }
-    lcd_print_char(cchar->content, fc, bc, x * fontSize, y * fontSize, cchar->underline);
 }
 
 int wrefresh(WINDOW *w) {
     if (w == NULL || w->content == NULL) {
         return ERR;
     }
-    wrefreshCursor(w);
-    unsigned char fontSize = font_metadata.char_width;
-    const uint64_t time = to_us_since_boot(get_absolute_time());
-    cchar_t *cchar;
-
-    for (int l = 0; l < w->lines; l++) {
-        for (int c = 0; c < w->cols; c++) {
-            cchar = &w->content[c * w->cols + l];
-            if (!cchar->changed && !cchar->blink) {
-                continue;
-            }
-            cchar->changed = false;
-            if (cchar->blink && curscr->blinkstate) {
-                lcd_draw_rect(l * 8, c * 8, (l * 8) + 8, (c * 8) + 8, RGB_COLOR[cchar->background]);
-                continue;
-            }
-            lcd_print_char(cchar->content, RGB_COLOR[cchar->foreground], RGB_COLOR[cchar->background], l * 8, c * 8, cchar->underline);
-        }
-    }
-
-    const int64_t delta = absolute_time_diff_us(time, to_us_since_boot(get_absolute_time()));
-    printf("wrefresh took %lld us\n", delta);
-
     return OK;
 }
 
 int refresh(void) {
-    if (curscr == NULL || curscr->content == NULL) {
-        return ERR;
-    }
-    return wrefresh(curscr); // TODO: stdscr?
+    return wrefresh(curscr);
 }
 
 int prefresh(WINDOW *w, int a, int b, int c, int d, int e, int f) {
-    // TODO: Partial refresh not needed?
-    if (w == NULL || w->content == NULL) {
-        return ERR;
-    }
     return wrefresh(w);
 }
 
@@ -284,8 +212,6 @@ WINDOW *initscr(void) {
     }
     curscr->cury = 0;
     curscr->curx = 0;
-    curscr->prevcurx = -1;
-    curscr->prevcury = -1;
     echo();
     curscr->prevCursorVisibility = invisible;
     curscr->cursorVisibility = invisible;
@@ -350,7 +276,7 @@ int setcchar(cchar_t *wcval, const wchar_t *wch, const attr_t attrs, NCURSES_PAI
 
     wcval->blink = (attrs & A_BLINK) != 0;
     wcval->underline = (attrs & A_UNDERLINE) != 0;
-    // if (attrs & A_BOLD) {}
+    wcval->bold = (attrs & A_BOLD) != 0;
 
     return OK;
 }
@@ -373,7 +299,7 @@ int wbkgrnd(WINDOW *w, const cchar_t *bkgrnd) {
 }
 
 int erase(void) {
-    return werase(curscr); // TODO: stdscr?
+    return werase(curscr);
 }
 
 int werase(WINDOW *w) {
@@ -523,17 +449,17 @@ static int cursorToIndex(WINDOW *w) {
 }
 
 static void clearContent(cchar_t *start, size_t length) {
-    const cchar_t EMPTY = {
-        .content = 0x20, // ASCII space
-        .blink = false,
-        .changed = true,
-        .color_pair_index = 0,
-        .background = defined_color_pairs[1] & (COLOR_COUNT - 1),
-        .foreground = (defined_color_pairs[1] >> COLOR_SHIFT) & (COLOR_COUNT - 1),
-    };
+    cchar_t empty;
+    memset(&empty, 0, sizeof(empty));
+
+    empty.content = 0x20; // ASCII space
+    empty.changed = true;
+    empty.color_pair_index = 0;
+    empty.background = defined_color_pairs[1] & (COLOR_COUNT - 1);
+    empty.foreground = (defined_color_pairs[1] >> COLOR_SHIFT) & (COLOR_COUNT - 1);
 
     for (int i = 0; i < length; i++) {
-        start[i] = EMPTY;
+        start[i] = empty;
     }
 }
 
@@ -546,7 +472,5 @@ static void markContentChanged(cchar_t *start, size_t length) {
 bool contentBlinkCallback(struct repeating_timer *timer) {
     WINDOW *scr = timer->user_data;
     scr->blinkstate = !scr->blinkstate;
-    // TODO: don't call wrefresh here; seems to be not performant
-    wrefresh(scr);
     return true;
 }

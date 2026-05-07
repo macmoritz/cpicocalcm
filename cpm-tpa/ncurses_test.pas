@@ -45,11 +45,12 @@ begin
         'q:         Exit', LineBreak);
   CursorOn;
 
+  Write(ESC, 'm');
   for A := 1 to 31 do
     Writeln('Lorem ipsum dolor sit amet, consetetur s');
 
   CursorVisible := True;
-  // Write(ESC, 'b'); // b: Restore Cursor
+  Write(ESC, 'b'); // b: Restore Cursor
   Input := ReadKey;
   while Input <> 'q' do
   begin
@@ -83,16 +84,9 @@ begin
         // CursorOn;
         CursorVisible := True;
       end
-    end;
+    end
+    else
+      Write(Input);
     Input := ReadKey;
   end;
-
-  repeat until KeyPressed;
-  // Write(ESC, 'E'); // E: Clear Screen; Cursor home
-  //
-  // WriteLn(ESC, 'k');
-  // for A := 1 to 15 do
-  //   Writeln('Lorem ipsum dolor sit amet, consetetur s');
-  // WriteLn(#27, 'l', LineBreak);
-
 end.

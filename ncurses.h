@@ -39,6 +39,7 @@ typedef struct {
     bool changed;
     bool blink;
     bool underline;
+    bool bold;
 
     NCURSES_COLOR_T color_pair_index;
     enum Color background;
@@ -61,7 +62,6 @@ typedef chtype attr_t;
 typedef struct _win_st {
     short lines, cols;
     short cury, curx;
-    short prevcury, prevcurx;
     bool nodelay;
     bool echo;
     bool scroll;
@@ -580,4 +580,3 @@ static void drawContent(WINDOW *, size_t x, size_t y, bool);
 
 extern struct repeating_timer contentBlinkTimer;
 bool contentBlinkCallback(struct repeating_timer *timer);
-static void wrefreshCursor(WINDOW *w);

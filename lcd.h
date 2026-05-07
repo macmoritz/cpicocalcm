@@ -1,17 +1,17 @@
 // initial version from https://github.com/clockworkpi/PicoCalc/tree/master/Code/picocalc_kbd_tester/lcdspi
 #ifndef LCDSPI_H
 #define LCDSPI_H
+#include <hardware/dma.h>
 #include <hardware/spi.h>
 #include <stdint.h>
 
-// #define LCD_SPI_SPEED 25000000
-#define LCD_SPI_SPEED SYS_CLK_HZ
+#define LCD_SPI_SPEED SYS_CLK_HZ // set SPI speed to maximum, microcontroller selects the highest available frequency
 
 #define PICO_LCD_SCK 10 // Clock
 #define PICO_LCD_TX 11  // MOSI
 #define PICO_LCD_RX 12  // MISO
 #define PICO_LCD_CS 13  // Chip Select
-#define PICO_LCD_DC 14
+#define PICO_LCD_DC 14  // Data Command Selection
 #define PICO_LCD_RST 15
 
 // Pico spi0 or spi1 must match GPIO pins used above.
@@ -55,44 +55,8 @@
 #define YELLOW RGB565(31, 63, 0)
 #define WHITE RGB565(31, 63, 31)
 
-#define PORTCLR 1
-#define PORTSET 2
-#define PORTINV 3
-#define LAT 4
-#define LATCLR 5
-#define LATSET 6
-#define LATINV 7
-#define ODC 8
-#define ODCCLR 9
-#define ODCSET 10
-#define CNPU 12
-#define CNPUCLR 13
-#define CNPUSET 14
-#define CNPUINV 15
-#define CNPD 16
-#define CNPDCLR 17
-#define CNPDSET 18
-
-#define ANSELCLR -7
-#define ANSELSET -6
-#define ANSELINV -5
-#define TRIS -4
-#define TRISCLR -3
-#define TRISSET -2
-
-extern void __not_in_flash_func(spi_write_fast)(spi_inst_t *spi, const uint8_t *src, size_t len);
-extern void __not_in_flash_func(spi_finish)(spi_inst_t *spi);
-extern void hw_read_spi(unsigned char *buff, int cnt);
-extern void hw_send_spi(const unsigned char *buff, int cnt);
-extern unsigned char __not_in_flash_func(hw1_swap_spi)(unsigned char data_out);
-
-extern void lcd_spi_raise_cs(void);
-extern void lcd_spi_lower_cs(void);
-extern void spi_write_data(unsigned char data);
-extern void spi_write_command(unsigned char data);
-extern void spi_write_cd(unsigned char command, int data, ...);
-extern void spi_write_data24(uint32_t data);
-extern void define_region_spi(int xstart, int ystart, int xend, int yend, int rw);
+extern uint spi_tx_dma;
+extern dma_channel_config spi_tx_dma_cfg;
 
 /**
  * @brief Initializes the communication with the lcd and the lcd itself.
@@ -107,46 +71,57 @@ extern void lcd_init();
 extern void lcd_clear();
 /**
  * @brief Resets the lcd.
- * Important for reading the lcd memory.
+ *
  */
 extern void lcd_reset_controller(void);
-extern void pin_set_bit(int pin, unsigned int offset);
 
-/**
- * @brief Show a character at a specified location on the lcd screen.
- * Not printable ascii characters will be printed as a block in the background color.
- *
- * @param c Character to show
- * @param fc Foreground color
- * @param bc Background color
- * @param x Vertical coordinate
- * @param y Horizontal coordinate
- */
-extern void lcd_print_char(char c, COLOR_TYPE fc, COLOR_TYPE bc, int x, int y, bool underline);
 /**
  * @brief Draw a filled rectangle
  *
  * @param x1 Top-left vertical coordinate
  * @param y1 Top-left horizontal coordinate
- * @param x2 Bottom-right vertical coordinate
- * @param y2 Bottom-right horizontal coordinate
+ * @param w Width of the rectangle
+ * @param h Height of the rectangle
  * @param c Fill color
  */
-extern void lcd_draw_rect(int x1, int y1, int x2, int y2, COLOR_TYPE c);
-/**
- * @brief Print the bitmap of a char on the video output
- *
- * @param x1 Top-left vertical position of the bitmap
- * @param y1 Top-left horizontal position of the bitmap
- * @param width width of the bitmap
- * @param height height of the bitmap
- * @param scale positive scaling of the char horizontally and vertically
- * @param fc foreground color
- * @param bc background color
- * @param bitmap pointer to the bitmap
- */
-extern void lcd_draw_bitmap(int x1, int y1, int width, int height, COLOR_TYPE fc, COLOR_TYPE bc, const unsigned char *bitmap);
+static inline void lcd_draw_rect(int x1, int y1, int w, int h, COLOR_TYPE c);
 
-static inline const void color_to_buffer(uint16_t color, unsigned char *buffer);
+/**
+ * @brief Sends information to the lcd controller, so it knows where to place the following pixel data
+ *
+ * @param xstart Top-left vertical coordinate
+ * @param ystart Top-left horizontal coordinate
+ * @param xend Bottom-right vertical coordinate
+ * @param yend Bottom-right horizontal coordinate
+ */
+static inline void lcd_define_region16(int xstart, int ystart, int xend, int yend);
+
+/**
+ * @brief Sends a command to the lcd controller with optional arguments
+ *
+ * @param command 8-Bit command, gets expanded to 16-Bit internally
+ * @param args Optional arguments to pass after the command
+ * @param len_args Count of arguments
+ */
+static inline void spi_write_command16(uint8_t command, const uint16_t *args, size_t len_args);
+
+typedef struct _win_st WINDOW; // Forward declaration for ncurses.h
+
+/**
+ * @brief Renders the screen content and pushes it to the lcd
+ * Runs blocking, but does double buffering to achieve fast SPI writing
+ *
+ * @param screenPointer Pointer to the ncurses `WINDOW` type containing screen content information
+ */
+void lcd_update(WINDOW *screenPointer);
+
+/**
+ * @brief Renders the nth-line from the screen to the buffer
+ *
+ * @param screen Pointer to the ncurses `WINDOW` type containing screen content information
+ * @param line Index of line to render
+ * @param buffer Pointer to a buffer for the rendered pixel data
+ */
+static void render_line(WINDOW *screen, int line, COLOR_TYPE *buffer);
 
 #endif
