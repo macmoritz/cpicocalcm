@@ -14,7 +14,7 @@ typedef struct font_t {
     unsigned char ascii_code_max;
 } FontMetadata;
 
-static FontMetadata font_metadata = {
+static const FontMetadata font_metadata = {
     .char_width = 8,
     .char_height = 8,
 

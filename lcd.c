@@ -25,6 +25,9 @@ static short hres = 0;
 static short vres = 0;
 uint spi_tx_dma;
 dma_channel_config spi_tx_dma_cfg;
+const size_t bufferSize = LCD_WIDTH * font_metadata.char_height;
+COLOR_TYPE *buffer0;
+COLOR_TYPE *buffer1;
 
 static inline void lcd_define_region16(int xstart, int ystart, int xend, int yend) {
     uint16_t coord[2];
@@ -142,11 +145,13 @@ void lcd_update(WINDOW *screen) {
     const size_t bufferSize = LCD_WIDTH * font_metadata.char_height;
 
     COLOR_TYPE *buffer;
-    COLOR_TYPE *buffer0 = malloc(bufferSize * sizeof(COLOR_TYPE));
-    COLOR_TYPE *buffer1 = malloc(bufferSize * sizeof(COLOR_TYPE));
     if (!buffer0 || !buffer1) {
-        free(buffer0);
-        free(buffer1);
+        if (buffer0) {
+            free(buffer0);
+        }
+        if (buffer1) {
+            free(buffer1);
+        }
         return;
     }
 
@@ -169,8 +174,10 @@ void lcd_update(WINDOW *screen) {
         dma_channel_set_trans_count(spi_tx_dma, bufferSize, true);
     }
 
-    free(buffer0);
-    free(buffer1);
+    dma_channel_wait_for_finish_blocking(spi_tx_dma);
+    while (spi_is_busy(PICO_LCD_SPI_MOD)) {
+        tight_loop_contents();
+    }
 }
 
 void lcd_clear() {

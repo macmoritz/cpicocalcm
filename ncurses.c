@@ -2,6 +2,7 @@
 #include "font.h"
 #include "lcd.h"
 #include "picocalc.h"
+#include <pico/time.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -11,6 +12,7 @@
 int COLOR_PAIRS;
 NCURSES_PAIRS_T *defined_color_pairs = NULL;
 WINDOW *curscr;
+WINDOW *displayscr;
 struct repeating_timer contentBlinkTimer;
 
 int curs_set(int visibility) {
@@ -107,6 +109,9 @@ int wrefresh(WINDOW *w) {
     if (w == NULL || w->content == NULL) {
         return ERR;
     }
+
+    memcpy(displayscr, w, sizeof *w);
+
     return OK;
 }
 
@@ -183,7 +188,6 @@ int init_pair(NCURSES_PAIRS_T index, NCURSES_COLOR_T foreground, NCURSES_COLOR_T
             }
             curscr->content[i].foreground = foreground;
             curscr->content[i].background = background;
-            curscr->content[i].changed = true;
         }
     }
     defined_color_pairs[index] = (foreground << COLOR_SHIFT) + background;
@@ -200,14 +204,14 @@ WINDOW *initscr(void) {
     if (!curscr) {
         return NULL;
     }
-    curscr->cury = 0;
-    curscr->curx = 0;
-    echo();
-    curscr->prevCursorVisibility = invisible;
-    curscr->cursorVisibility = invisible;
     curs_set(visible);
 
-    add_repeating_timer_ms(-500, contentBlinkCallback, curscr, &contentBlinkTimer);
+    displayscr = calloc(1, sizeof(WINDOW));
+    if (!displayscr) {
+        return NULL;
+    }
+
+    add_repeating_timer_ms(-500, contentBlinkCallback, displayscr, &contentBlinkTimer);
 
     return curscr;
 }
@@ -242,13 +246,15 @@ WINDOW *newpad(int xsize, int ysize) {
     curscr->lines = ysize;
     curscr->cols = xsize;
     curscr->content = calloc(curscr->lines * curscr->cols, sizeof(cchar_t));
+    displayscr->lines = ysize;
+    displayscr->cols = xsize;
+    displayscr->content = calloc(displayscr->lines * displayscr->cols, sizeof(cchar_t));
     return curscr;
 }
 
 int setcchar(cchar_t *wcval, const wchar_t *wch, const attr_t attrs, NCURSES_PAIRS_T color_pair_index, const void *opts) {
     memset(wcval, 0, sizeof(*wcval));
     wcval->content = (char)wch[0];
-    wcval->changed = true;
     wcval->color_pair_index = 0;
 
     if (defined_color_pairs != NULL && color_pair_index >= 0 && color_pair_index <= COLOR_PAIRS && defined_color_pairs[color_pair_index] != SHORT_MAX) {
@@ -283,7 +289,6 @@ int wbkgrnd(WINDOW *w, const cchar_t *bkgrnd) {
         w->content[i].color_pair_index = 0;
         w->content[i].foreground = bkgrnd->foreground;
         w->content[i].background = bkgrnd->background;
-        w->content[i].changed = true;
     }
     return OK;
 }
@@ -354,7 +359,6 @@ int wins_wch(WINDOW *w, const cchar_t *a) {
     const int n = w->cols - w->curx - 1;
     if (n > 0) {
         memmove(&w->content[cursorToIndex(w) + 1], &w->content[cursorToIndex(w)], n * sizeof(w->content[0]));
-        markContentChanged(&w->content[cursorToIndex(w) + 1], n);
     }
     w->content[cursorToIndex(w)] = *a;
     return OK;
@@ -391,7 +395,6 @@ int winsertln(WINDOW *w) {
     const int n = w->lines - 1 - w->cury;
     if (n > 0) {
         memmove(&w->content[(w->cury + 1) * w->cols], &w->content[w->cury * w->cols], n * w->cols * sizeof(w->content[0]));
-        markContentChanged(&w->content[(w->cury + 1) * w->cols], n * w->cols);
     }
     clearline(w, w->cury);
     wrefresh(w);
@@ -405,7 +408,6 @@ int wdeleteln(WINDOW *w) {
     const int n = w->lines - 1 - w->cury;
     if (n > 0) {
         memmove(&w->content[w->cury * w->cols], &w->content[(w->cury + 1) * w->cols], n * w->cols * sizeof(w->content[0]));
-        markContentChanged(&w->content[w->cury * w->cols], n * w->cols);
     }
     clearline(w, w->lines - 1);
     wrefresh(w);
@@ -419,7 +421,6 @@ int wdelch(WINDOW *w) {
     const int n = w->cols - 1 - w->curx;
     if (n > 0) {
         memmove(&w->content[cursorToIndex(w)], &w->content[cursorToIndex(w) + 1], n * sizeof(w->content[0]));
-        markContentChanged(&w->content[cursorToIndex(w)], n);
     }
     clearContent(&w->content[w->cury * w->cols + w->cols - 1], 1);
     wrefresh(w);
@@ -444,19 +445,12 @@ static void clearContent(cchar_t *start, size_t length) {
     memset(&empty, 0, sizeof(empty));
 
     empty.content = 0x20; // ASCII space
-    empty.changed = true;
     empty.color_pair_index = 0;
     empty.background = defined_color_pairs[1] & (COLOR_COUNT - 1);
     empty.foreground = (defined_color_pairs[1] >> COLOR_SHIFT) & (COLOR_COUNT - 1);
 
     for (int i = 0; i < length; i++) {
         start[i] = empty;
-    }
-}
-
-static void markContentChanged(cchar_t *start, size_t length) {
-    for (int i = 0; i < length; i++) {
-        start[i].changed = true;
     }
 }
 

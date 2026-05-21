@@ -58,6 +58,10 @@
 extern uint spi_tx_dma;
 extern dma_channel_config spi_tx_dma_cfg;
 
+extern const size_t bufferSize;
+extern COLOR_TYPE *buffer0;
+extern COLOR_TYPE *buffer1;
+
 /**
  * @brief Initializes the communication with the lcd and the lcd itself.
  * Needs to be called before calling any other `lcd_`-prefixed function.

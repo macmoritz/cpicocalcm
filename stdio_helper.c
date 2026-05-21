@@ -27,7 +27,8 @@ bool hasError(FRESULT result) {
         errno = EIO;
         break;
     case FR_INT_ERR: /* Assertion failed */
-
+        errno = ECANCELED;
+        break;
     case FR_NOT_READY: /* The physical drive does not work */
         errno = EBUSY;
         break;

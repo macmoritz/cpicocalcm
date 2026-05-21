@@ -26,15 +26,12 @@ struct dirent *readdir(DIR *dir) {
     if (result != FR_OK || info.fname[0] == 0) {
         return NULL;
     }
-    // struct dirent* entry = malloc(sizeof(struct dirent));
-    // if (entry == NULL) {
-    //     return NULL;
-    // }
-    const size_t fname_len = strlen(info.fname) + 1;
-    entry.d_name = malloc(fname_len);
     if (entry.d_name == NULL) {
-        // free(entry);
-        return NULL;
+        const size_t fname_len = strlen(info.fname) + 1;
+        entry.d_name = malloc(fname_len);
+        if (entry.d_name == NULL) {
+            return NULL;
+        }
     }
     strcpy(entry.d_name, info.fname);
     return &entry;

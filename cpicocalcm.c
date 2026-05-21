@@ -1,5 +1,6 @@
 #include "fatfs/source/ff.h"
 #include "sdcard.h"
+#include <pico/platform/common.h>
 #include <stdlib.h>
 #include <string.h>
 #define _POSIX_TIMERS 1
@@ -32,14 +33,16 @@ void lcdJob() {
     lcd_clear();
     uint64_t frameCounter = 0;
     uint64_t frameStart = to_us_since_boot(get_absolute_time());
+    buffer0 = malloc(bufferSize * sizeof(COLOR_TYPE));
+    buffer1 = malloc(bufferSize * sizeof(COLOR_TYPE));
     while (1) {
-        lcd_update(curscr);
+        lcd_update(displayscr);
         frameCounter++;
         if (frameCounter == 100) {
             const int64_t delta = absolute_time_diff_us(frameStart, to_us_since_boot(get_absolute_time()));
             const double averageTimePerFrameUs = (double)delta / (double)frameCounter;
             const double framesPerSecond = 1000000 / averageTimePerFrameUs;
-            printf("Frames per Second: ~%.2f\n", framesPerSecond);
+            printf("Frames per Second: %f\n", framesPerSecond);
             frameStart = to_us_since_boot(get_absolute_time());
             frameCounter = 0;
         }
@@ -50,6 +53,8 @@ void lcdJob() {
 static inline void cleanup() {
     f_unmount("");
     multicore_reset_core1();
+    free(buffer0);
+    free(buffer1);
 }
 
 int main() {
@@ -127,7 +132,7 @@ int main() {
 
     // conf_command = "/files.com";
     conf_command = "/animals.com";
-    conf_command = "/all.com";
+    // conf_command = "/all.com";
     conf_color = true;
     conf_background = COLOR_BLACK;
     conf_foreground = COLOR_WHITE;

@@ -1,4 +1,3 @@
-#include "sdcard.h"
 #include "stdio_helper.h"
 #include <fatfs/source/ff.h>
 #include <fcntl.h>
@@ -12,18 +11,18 @@
 
 // tnylpo uses following file functions:
 // regex used for search: `f[a-z]*\(`
-// - [x] fopen
-// - [x] fclose
-// - [ ] ferror
-// - [ ] feof
-// - [x] fstat
-// - [x] fwrite
-// - [ ] fputwc
-// - [ ] fgetwc
-// - [ ] fgetws
-// - [x] fread
-// - [ ] fprintf (overwrite/hook needed?)
-// - [ ] fflush (overwrite/hook needed?)
+// - fopen
+// - fclose
+// - ferror
+// - feof
+// - fstat
+// - fwrite
+// - fputwc
+// - fgetwc
+// - fgetws
+// - fread
+// - fprintf (overwrite/hook needed?)
+// - fflush (overwrite/hook needed?)
 
 #define LOG(...) printf("stdio.c: " __VA_ARGS__)
 

@@ -58,4 +58,6 @@ set_source_files_properties(tnylpo/cpu.c PROPERTIES
     COMPILE_OPTIONS "-include;${CMAKE_CURRENT_LIST_DIR}/patch.h"
 )
 
+set_property(TARGET cpicocalcm APPEND_STRING PROPERTY LINK_FLAGS "-Wl,--print-memory-usage")
+
 pico_add_extra_outputs(cpicocalcm)

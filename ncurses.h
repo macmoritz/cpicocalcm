@@ -34,12 +34,10 @@ static const COLOR_TYPE RGB_COLOR[COLOR_COUNT] = {BLACK, BLUE, RED, MAGENTA, GRE
 
 #define COLOR_SHIFT 3 // log2(COLOR_COUNT)
 
-// TODO: drop changed?
 /**
  * @brief Data structure representing a character cell of the display content.
  *
  * content: the character to be displayed in the cell
- * changed: whether the content of the cell has changed since last refresh
  * blink: whether the cell should blink
  * underline: whether the cell should be underlined
  * bold: whether the cell should be bold
@@ -49,7 +47,6 @@ static const COLOR_TYPE RGB_COLOR[COLOR_COUNT] = {BLACK, BLUE, RED, MAGENTA, GRE
  */
 typedef struct {
     char content;
-    bool changed;
     bool blink;
     bool underline;
     bool bold;
@@ -105,6 +102,8 @@ extern NCURSES_PAIRS_T *defined_color_pairs;
 // #define COLOR_WHITE 7
 
 extern WINDOW *curscr;
+extern WINDOW *displayscr;
+
 /*
  * curs_set adjusts the cursor visibility to “invisible”, “visible”, “very
  * visible”, as its argument is 0, 1, or 2, respectively.  It returns the
@@ -588,8 +587,6 @@ static void clearline(WINDOW *, int);
 static int cursorToIndex(WINDOW *);
 
 static void clearContent(cchar_t *start, size_t length);
-static void markContentChanged(cchar_t *start, size_t length);
-static void drawContent(WINDOW *, size_t x, size_t y, bool);
 
 extern struct repeating_timer contentBlinkTimer;
 bool contentBlinkCallback(struct repeating_timer *timer);
