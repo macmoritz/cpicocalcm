@@ -174,7 +174,7 @@ void lcd_update(WINDOW *screen) {
 }
 
 void lcd_clear() {
-    lcd_draw_rect(0, 0, hres - 1, vres - 1, BLACK);
+    lcd_draw_rect(0, 0, hres, vres, BLACK);
 }
 
 void lcd_reset_controller(void) {
