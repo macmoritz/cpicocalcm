@@ -1,6 +1,8 @@
 #pragma once
 
+#include <hardware/dma.h>
 #include <hardware/i2c.h>
+#include <hardware/spi.h>
 #include <stdint.h>
 
 // https://github.com/clockworkpi/PicoCalc/blob/master/Code/picocalc_kbd_tester/i2ckbd/i2ckbd.h
@@ -13,6 +15,17 @@
 // https://github.com/clockworkpi/PicoCalc/blob/master/clockwork_Mainboard_V2.0_Schematic.pdf
 #define AUDIO_PWM_L 26
 #define AUDIO_PWM_R 27
+
+#define SD_DET 22
+#define SD_PICO_SPI spi0
+#define SD_SPIO_RX 16
+#define SD_SPIO_CS 17
+#define SD_SPIO_SCK 18
+#define SD_SPIO_TX 19
+
+// Indicates the presence of a SD card in the PicoCalc.
+// Automatically updated by an interrupt attached by `picocalc_init`.
+extern bool picoCalcSDCardPresent;
 
 /**
  * @brief Initializes communication with PicoCalc.
@@ -78,3 +91,12 @@ void picocalc_print_version();
  * @return status, -1 is write error, -2 is read error, 0 is ok
  */
 static int picocalc_i2c(const uint8_t function, uint8_t *buffer);
+
+/**
+ * @brief Interrupt callback attached to SD_DET by `picocalc_init`.
+ * Prints the status of the sd card presence if it has changed.
+ *
+ * @param gpio GPIO pin for which was triggered the interrupt
+ * @param events Interrupt event mask
+ */
+static void picocalc_sd_det_callback(uint gpio, uint32_t events);

@@ -34,6 +34,19 @@ static const COLOR_TYPE RGB_COLOR[COLOR_COUNT] = {BLACK, BLUE, RED, MAGENTA, GRE
 
 #define COLOR_SHIFT 3 // log2(COLOR_COUNT)
 
+// TODO: drop changed?
+/**
+ * @brief Data structure representing a character cell of the display content.
+ *
+ * content: the character to be displayed in the cell
+ * changed: whether the content of the cell has changed since last refresh
+ * blink: whether the cell should blink
+ * underline: whether the cell should be underlined
+ * bold: whether the cell should be bold
+ * color_pair_index: the index of the color pair used for the cell
+ * background: the background color of the cell
+ * foreground: the foreground color of the cell
+ */
 typedef struct {
     char content;
     bool changed;
@@ -46,17 +59,13 @@ typedef struct {
     enum Color foreground;
 } cchar_t;
 
-typedef unsigned int chtype;
-
-typedef chtype attr_t;
-
 /**
- * @brief
+ * @brief Data structure representing the display content and state managed by ncurses.
  *
  * lines: horizontal, y; cols: vertical, x; size of the window/content
  * cury: Cursor Y (horizontal, lines); curx: Cursor X (vertical, cols); current cursor position
  * nodelay: 0 = nodelay, <0 = blocking, >0 = delay
- *
+ * echo: Enables direct output by ncurses. Not used by tnylpo.
  * content: Screen char content
  */
 typedef struct _win_st {
@@ -71,6 +80,10 @@ typedef struct _win_st {
 
     cchar_t *content;
 } WINDOW;
+
+typedef unsigned int chtype;
+
+typedef chtype attr_t;
 
 /*
  * Maximum count of color pairs.

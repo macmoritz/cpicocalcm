@@ -31,11 +31,6 @@ int sigaction(int a, const struct sigaction *b, struct sigaction *c) {
     return -1;
 }
 
-int gettimeofday(struct timeval *__restrict __p, void *__restrict __tz) {
-    absolute_time_t time = aon_timer_get_time((struct timespec *)__p);
-    return 0;
-}
-
 int nanosleep(const struct timespec *requested, struct timespec *remaining) {
     sleep_us(requested->tv_nsec / 1000 + requested->tv_sec * 1000000);
     return 0;

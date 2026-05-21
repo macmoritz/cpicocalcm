@@ -5,3 +5,4 @@ README.md
 CMakeLists.txt
 pico_sdk_import.cmake
 font.h
+fatfs/**

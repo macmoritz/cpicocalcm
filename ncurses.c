@@ -128,23 +128,7 @@ int wget_wch(WINDOW *w, wint_t *a) {
         return ERR;
     }
 
-    if (w->echo) {
-        // TODO: handle erase and delete
-        w->content[cursorToIndex(w)].content = key;
-        w->content[cursorToIndex(w)].changed = true;
-        if (w->curx == (w->lines - 1) && w->cury == (w->cols - 1)) {
-            // TODO: what is the desired behavior in bottom right corner of screen?
-            return OK;
-        }
-        // TODO: is wrapping around needed?
-        if (w->curx == (w->lines - 1)) {
-            w->curx = 0;
-            w->cury++;
-            return OK;
-        }
-        w->curx++;
-        return OK;
-    }
+    // window `echo` is not used by tnylpo, therefor it is not implemented
 
     if (key >= 129 && key <= 137) {
         *a = KEY_F(key - 128);
@@ -175,6 +159,12 @@ int wget_wch(WINDOW *w, wint_t *a) {
     case 213:
         *a = KEY_END;
         return KEY_CODE_YES;
+    case 8:
+        *a = KEY_BACKSPACE;
+        return KEY_CODE_YES;
+    case 10:
+        *a = 13;   // Carriage return
+        return OK; // passing to CP/M by tnylpo
     }
 
     *a = key;
@@ -352,6 +342,7 @@ int wadd_wch(WINDOW *w, const cchar_t *a) {
     }
 
     w->content[cursorToIndex(w)] = *a;
+    // printf("%c", a->content);
     // TODO: `may advance cursor position`, see `putwchar`
     return OK;
 }

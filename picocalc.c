@@ -1,13 +1,18 @@
 #include "picocalc.h"
 #include "keys.h"
 #include <hardware/clocks.h>
+#include <hardware/gpio.h>
 #include <hardware/i2c.h>
+#include <hardware/irq.h>
 #include <hardware/pwm.h>
+#include <hardware/regs/intctrl.h>
 #include <pico/stdlib.h>
 #include <pico/time.h>
 #include <pico/types.h>
 #include <stdint.h>
 #include <stdio.h>
+
+bool picoCalcSDCardPresent;
 
 void picocalc_init() {
     // Audio init
@@ -22,6 +27,14 @@ void picocalc_init() {
     i2c_init(I2C_KBD_MOD, I2C_KBD_SPEED);
     gpio_pull_up(I2C_KBD_SCL);
     gpio_pull_up(I2C_KBD_SDA);
+
+    // SD Detection init
+    gpio_init(SD_DET);
+    gpio_set_dir(SD_DET, GPIO_IN);
+    irq_set_enabled(IO_IRQ_BANK0, true);
+    gpio_set_irq_enabled_with_callback(SD_DET, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true, &picocalc_sd_det_callback);
+    picocalc_sd_det_callback(SD_DET, gpio_get(SD_DET) ? GPIO_IRQ_EDGE_RISE : GPIO_IRQ_EDGE_FALL);
+    printf("picocalc SD Card %s present\n", picoCalcSDCardPresent ? "" : "not");
 }
 
 int picocalc_drain_keyboard_fifo() {
@@ -148,4 +161,16 @@ static int picocalc_i2c(const uint8_t msg, uint8_t *buf) {
         return -2;
     }
     return 0;
+}
+
+static void picocalc_sd_det_callback(uint gpio, uint32_t events) {
+    if (gpio != SD_DET) {
+        return;
+    }
+    const bool prev = picoCalcSDCardPresent;
+    picoCalcSDCardPresent = (events == GPIO_IRQ_EDGE_FALL);
+    if (prev == picoCalcSDCardPresent) {
+        return;
+    }
+    printf("picocalc SD Card %s\n", picoCalcSDCardPresent ? "inserted" : "removed");
 }
