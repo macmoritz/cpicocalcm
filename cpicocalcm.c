@@ -130,8 +130,8 @@ int main() {
     // f_unmount("");
     // return 0;
 
-    // conf_command = "/files.com";
-    conf_command = "/animals.com";
+    conf_command = "/files.com";
+    // conf_command = "/animals.com";
     // conf_command = "/all.com";
     conf_color = true;
     conf_background = COLOR_BLACK;
@@ -147,17 +147,10 @@ int main() {
 
     // Persistent configuration:
     cols = lines = 40; // 40x40 chars with 8*8 pixel chars = 320x320 pixel output
-    // screen_delay = 0;  // no delay, exit emulation directly
-    screen_delay = -1; // delay, wait to exit emulation
+    screen_delay = 0;  // no delay, exit emulation directly
+    // screen_delay = -1; // delay, wait to exit emulation
     conf_interactive = true;
     dont_close = false;
-
-    status = cpu_init();
-    if (status) {
-        printf("cpu_init failed\n");
-        cleanup();
-        return 1;
-    }
 
     // stdio_init_all();
     // cpu_init();
@@ -172,6 +165,13 @@ int main() {
     // cpu_run();
     // printf("Registers: A: 0x%02x\tB: 0x%02x\n", reg_a, reg_b); // Registers: A: 0xff      B: 0xfe
 
+    status = cpu_init();
+    if (status) {
+        printf("cpu_init failed\n");
+        cleanup();
+        return 1;
+    }
+
     status = console_init();
     if (status) {
         printf("console_init failed\n");
@@ -180,22 +180,20 @@ int main() {
     }
     multicore_launch_core1(lcdJob);
     cpu_run();
+    cleanup();
+    status = console_exit();
+    if (status) {
+        printf("console_exit failed\n");
+        return 1;
+    }
     status = cpu_exit();
     if (status) {
         printf("cpu_exit failed\n");
-        cleanup();
         return 1;
     }
     status = finalize_chario();
     if (status) {
         printf("finalize_chario failed\n");
-        cleanup();
-        return 1;
-    }
-    status = console_exit();
-    if (status) {
-        printf("console_exit failed\n");
-        cleanup();
         return 1;
     }
 
@@ -206,6 +204,5 @@ int main() {
     // aon_timer_get_time_calendar(&tm);
     // printf("tm sec: %d\n", tm.tm_sec);
 
-    cleanup();
     exit(0);
 }

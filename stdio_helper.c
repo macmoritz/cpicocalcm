@@ -1,7 +1,6 @@
 #include "stdio_helper.h"
 #include "fatfs/source/ff.h"
 #include <stdbool.h>
-#include <stdio.h>
 #include <string.h>
 #include <sys/errno.h>
 #include <sys/stat.h>
@@ -13,7 +12,6 @@ const char *adjust_filename(const char *fn) {
 
     if (fn[0] == '.' && fn[1] == '/') {
         const char *adjusted = fn + 1;
-        printf("adjusted filename from %s to %s\n", fn, adjusted);
         return adjusted;
     }
     return fn;

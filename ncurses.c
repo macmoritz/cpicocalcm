@@ -2,6 +2,7 @@
 #include "font.h"
 #include "lcd.h"
 #include "picocalc.h"
+#include <pico/multicore.h>
 #include <pico/time.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -45,12 +46,15 @@ int delwin(WINDOW *w) {
     // this trap for the first call is needed.
     if (w->content != NULL) {
         free(w->content);
+        free(displayscr->content);
         w->content = NULL;
         return OK;
     }
 
-    curscr = NULL;
     free(w);
+    free(displayscr);
+    curscr = NULL;
+    displayscr = NULL;
 
     if (defined_color_pairs != NULL) {
         free(defined_color_pairs);
@@ -110,7 +114,13 @@ int wrefresh(WINDOW *w) {
         return ERR;
     }
 
-    memcpy(displayscr, w, sizeof *w);
+    memcpy(displayscr->content, w->content, w->lines * w->cols * sizeof(cchar_t));
+    displayscr->cursorVisibility = w->cursorVisibility;
+    displayscr->prevCursorVisibility = w->prevCursorVisibility;
+    displayscr->curx = w->curx;
+    displayscr->cury = w->cury;
+    displayscr->cols = w->cols;
+    displayscr->lines = w->lines;
 
     return OK;
 }
@@ -243,12 +253,23 @@ int raw(void) {
 }
 
 WINDOW *newpad(int xsize, int ysize) {
+    if (!curscr || !displayscr) {
+        return NULL;
+    }
     curscr->lines = ysize;
-    curscr->cols = xsize;
-    curscr->content = calloc(curscr->lines * curscr->cols, sizeof(cchar_t));
     displayscr->lines = ysize;
+    curscr->cols = xsize;
     displayscr->cols = xsize;
+    curscr->content = calloc(curscr->lines * curscr->cols, sizeof(cchar_t));
+    if (curscr->content == NULL) {
+        printf("calloc failed\n");
+        return NULL;
+    }
     displayscr->content = calloc(displayscr->lines * displayscr->cols, sizeof(cchar_t));
+    if (displayscr->content == NULL) {
+        printf("calloc failed\n");
+        return NULL;
+    }
     return curscr;
 }
 

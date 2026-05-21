@@ -47,7 +47,6 @@ int lstat(const char *path, struct stat *filestat) {
     FILINFO fi;
     const char *filename = adjust_filename(path);
     const FRESULT result = f_stat(filename, &fi);
-    printf("lstat {path: %s; result: %d, fsize: %d}\n", path, result, fi.fsize);
     if (result != FR_OK) {
         return 1;
     }
