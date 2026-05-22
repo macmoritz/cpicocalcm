@@ -12,8 +12,8 @@
 
 int COLOR_PAIRS;
 NCURSES_PAIRS_T *defined_color_pairs = NULL;
-WINDOW *curscr;
-WINDOW *displayscr;
+WINDOW *curscr = NULL;
+WINDOW *displayscr = NULL;
 struct repeating_timer contentBlinkTimer;
 
 int curs_set(int visibility) {
@@ -45,18 +45,29 @@ int delwin(WINDOW *w) {
     // Since pad and window are the same in this implementation and tnylpo calls `delwin(pad_p)` before `delwin(win_p)`,
     // this trap for the first call is needed.
     if (w->content != NULL) {
+        if (curscr != NULL && curscr->content == w->content) {
+            curscr->content = NULL;
+        }
+        if (displayscr != NULL && displayscr->content == w->content) {
+            displayscr->content = NULL;
+        }
+
         free(w->content);
-        free(displayscr->content);
         w->content = NULL;
         return OK;
     }
 
+    if (w == curscr) {
+        curscr = NULL;
+    } else if (w == displayscr) {
+        cancel_repeating_timer(&contentBlinkTimer);
+        displayscr = NULL;
+    }
     free(w);
-    free(displayscr);
-    curscr = NULL;
-    displayscr = NULL;
+    w = NULL;
 
-    if (defined_color_pairs != NULL) {
+    if (defined_color_pairs != NULL && curscr == NULL && displayscr == NULL) {
+        // final cleanup
         free(defined_color_pairs);
         defined_color_pairs = NULL;
     }
@@ -101,7 +112,7 @@ int wmove(WINDOW *w, int y, int x) {
     if (w == NULL) {
         return ERR;
     }
-    if (y >= w->cols || x >= w->lines) {
+    if (y < 0 || y >= w->lines || x < 0 || x >= w->cols) {
         return ERR;
     }
     w->cury = y;
@@ -110,7 +121,7 @@ int wmove(WINDOW *w, int y, int x) {
 }
 
 int wrefresh(WINDOW *w) {
-    if (w == NULL || w->content == NULL) {
+    if (w == NULL || w->content == NULL || curscr == NULL || curscr->content == NULL || displayscr == NULL || displayscr->content == NULL) {
         return ERR;
     }
 
@@ -187,11 +198,11 @@ int wget_wch(WINDOW *w, wint_t *a) {
 }
 
 int init_pair(NCURSES_PAIRS_T index, NCURSES_COLOR_T foreground, NCURSES_COLOR_T background) {
-    if (defined_color_pairs == NULL || index == 0 || index >= COLOR_PAIRS || foreground >= COLOR_COUNT || background >= COLOR_COUNT) {
+    if (defined_color_pairs == NULL || index <= 0 || index >= COLOR_PAIRS || foreground >= COLOR_COUNT || background >= COLOR_COUNT) {
         return ERR;
     }
 
-    if (defined_color_pairs[index] != SHORT_MAX) {
+    if (defined_color_pairs[index] != SHORT_MAX && curscr != NULL && curscr->content != NULL) {
         for (int i = 0; i < curscr->lines * curscr->cols; i++) {
             if (curscr->content[i].color_pair_index != index) {
                 continue;
@@ -231,15 +242,16 @@ bool has_colors(void) {
 }
 
 int start_color(void) {
-    if (defined_color_pairs != NULL) {
-        return OK;
-    }
+    free(defined_color_pairs);
+    defined_color_pairs = NULL;
 
     COLOR_PAIRS = COLOR_COUNT * COLOR_COUNT + 1; // +1 is needed to stop complains from tnylpo about limit of color pairs
     defined_color_pairs = calloc(COLOR_PAIRS, sizeof(NCURSES_PAIRS_T));
-    memset(defined_color_pairs, SHORT_MAX, COLOR_PAIRS);
     if (defined_color_pairs == NULL) {
         return ERR;
+    }
+    for (int i = 0; i < COLOR_PAIRS; i++) {
+        defined_color_pairs[i] = SHORT_MAX;
     }
 
     // init pair 0 to white on black
@@ -261,24 +273,28 @@ WINDOW *newpad(int xsize, int ysize) {
     curscr->cols = xsize;
     displayscr->cols = xsize;
     curscr->content = calloc(curscr->lines * curscr->cols, sizeof(cchar_t));
-    if (curscr->content == NULL) {
-        printf("calloc failed\n");
-        return NULL;
-    }
     displayscr->content = calloc(displayscr->lines * displayscr->cols, sizeof(cchar_t));
-    if (displayscr->content == NULL) {
-        printf("calloc failed\n");
+    if (curscr->content == NULL || displayscr->content == NULL) {
+        free(curscr->content);
+        free(displayscr->content);
+        curscr->content = NULL;
+        displayscr->content = NULL;
         return NULL;
     }
+
     return curscr;
 }
 
 int setcchar(cchar_t *wcval, const wchar_t *wch, const attr_t attrs, NCURSES_PAIRS_T color_pair_index, const void *opts) {
+    if (defined_color_pairs == NULL) {
+        return ERR;
+    }
+
     memset(wcval, 0, sizeof(*wcval));
     wcval->content = (char)wch[0];
     wcval->color_pair_index = 0;
 
-    if (defined_color_pairs != NULL && color_pair_index >= 0 && color_pair_index <= COLOR_PAIRS && defined_color_pairs[color_pair_index] != SHORT_MAX) {
+    if (color_pair_index >= 0 && color_pair_index < COLOR_PAIRS && defined_color_pairs[color_pair_index] != SHORT_MAX) {
         wcval->color_pair_index = color_pair_index;
     }
     NCURSES_PAIRS_T color_pair = defined_color_pairs[wcval->color_pair_index];
@@ -340,7 +356,8 @@ int scrollok(WINDOW *w, bool status) {
 }
 
 int wscrl(WINDOW *w, int move) {
-    if (w == NULL || !w->scroll || move >= w->lines) {
+    const int moveAbs = abs(move);
+    if (w == NULL || !w->scroll || moveAbs >= w->lines) {
         return ERR;
     }
     if (move == 0) {
@@ -351,10 +368,10 @@ int wscrl(WINDOW *w, int move) {
 
     if (move > 0) {
         memmove(&w->content[0], &w->content[move * w->cols], (w->lines - move) * w->cols * sizeof(w->content[0]));
-        clearContent(&w->content[(w->lines - move) * w->cols], move * w->cols * sizeof(w->content[0]));
+        clearContent(&w->content[(w->lines - move) * w->cols], move * w->cols);
     } else if (move < 0) {
-        memmove(&w->content[move * w->cols], &w->content[0], (w->lines - move) * w->cols * sizeof(w->content[0]));
-        clearContent(&w->content[0], move * w->cols * sizeof(w->content[0]));
+        memmove(&w->content[moveAbs * w->cols], &w->content[0], (w->lines - moveAbs) * w->cols * sizeof(w->content[0]));
+        clearContent(&w->content[0], moveAbs * w->cols);
     }
 
     w->curx = prev_curx;
@@ -448,9 +465,12 @@ int wdelch(WINDOW *w) {
     return OK;
 }
 
-void getmaxyx(WINDOW *w, int y, int x) {
-    y = w->lines;
-    x = w->cols;
+int getmaxy(const WINDOW *w) {
+    return w->lines;
+}
+
+int getmaxx(const WINDOW *w) {
+    return w->cols;
 }
 
 static void clearline(WINDOW *w, int line) {
@@ -458,17 +478,26 @@ static void clearline(WINDOW *w, int line) {
 }
 
 static int cursorToIndex(WINDOW *w) {
-    return w->cury * w->cols + w->curx;
+    const int idx = w->cury * w->cols + w->curx;
+    if (idx < 0 || idx >= w->lines * w->cols) {
+        return 0;
+    }
+    return idx;
 }
 
 static void clearContent(cchar_t *start, size_t length) {
     cchar_t empty;
     memset(&empty, 0, sizeof(empty));
 
+    NCURSES_PAIRS_T color_pair = (COLOR_WHITE << COLOR_SHIFT) + COLOR_BLACK;
+    if (defined_color_pairs != NULL) {
+        color_pair = defined_color_pairs[1];
+    }
+
     empty.content = 0x20; // ASCII space
     empty.color_pair_index = 0;
-    empty.background = defined_color_pairs[1] & (COLOR_COUNT - 1);
-    empty.foreground = (defined_color_pairs[1] >> COLOR_SHIFT) & (COLOR_COUNT - 1);
+    empty.background = color_pair & (COLOR_COUNT - 1);
+    empty.foreground = (color_pair >> COLOR_SHIFT) & (COLOR_COUNT - 1);
 
     for (int i = 0; i < length; i++) {
         start[i] = empty;
@@ -477,6 +506,9 @@ static void clearContent(cchar_t *start, size_t length) {
 
 bool contentBlinkCallback(struct repeating_timer *timer) {
     WINDOW *scr = timer->user_data;
+    if (scr == NULL) {
+        return false;
+    }
     scr->blinkstate = !scr->blinkstate;
     return true;
 }

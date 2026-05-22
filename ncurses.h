@@ -59,7 +59,7 @@ typedef struct {
 /**
  * @brief Data structure representing the display content and state managed by ncurses.
  *
- * lines: horizontal, y; cols: vertical, x; size of the window/content
+ * lines: vertical, y; cols: horizontal, x; size of the window/content
  * cury: Cursor Y (horizontal, lines); curx: Cursor X (vertical, cols); current cursor position
  * nodelay: 0 = nodelay, <0 = blocking, >0 = delay
  * echo: Enables direct output by ncurses. Not used by tnylpo.
@@ -569,10 +569,9 @@ int wdeleteln(WINDOW *);
  */
 int wdelch(WINDOW *);
 
-// int getmaxy(const WINDOW *);
-// int getmaxx(const WINDOW *);
-// #define getmaxyx(win, y, x) (y = getmaxy(win), x = getmaxx(win))
-void getmaxyx(WINDOW *, int, int);
+int getmaxy(const WINDOW *);
+int getmaxx(const WINDOW *);
+#define getmaxyx(win, y, x) (y = getmaxy(win), x = getmaxx(win))
 
 /*
  * Sets the content of the given row to ASCII_SPACE.

@@ -1,6 +1,7 @@
 #include "fatfs/source/ff.h"
 #include "sdcard.h"
 #include <pico/platform/common.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 #define _POSIX_TIMERS 1
@@ -27,6 +28,9 @@
 
 #define TPA_START 0x0100
 
+static atomic_bool core1_running = true;
+static atomic_bool core1_stopped = false;
+
 // This runs on the second core and renders the video content as well as sending the rendered content to the lcd
 void lcdJob() {
     lcd_init();
@@ -35,6 +39,7 @@ void lcdJob() {
     uint64_t frameStart = to_us_since_boot(get_absolute_time());
     buffer0 = malloc(bufferSize * sizeof(COLOR_TYPE));
     buffer1 = malloc(bufferSize * sizeof(COLOR_TYPE));
+    bool stopInNextIteration = false;
     while (1) {
         lcd_update(displayscr);
         frameCounter++;
@@ -46,15 +51,24 @@ void lcdJob() {
             frameStart = to_us_since_boot(get_absolute_time());
             frameCounter = 0;
         }
+        if (stopInNextIteration) {
+            break;
+        }
+        if (!atomic_load_explicit(&core1_running, memory_order_acquire)) {
+            stopInNextIteration = true;
+        }
     }
+    free(buffer0);
+    free(buffer1);
+    delwin(displayscr); // free content
+    delwin(displayscr); // free WINDOW
+    atomic_store_explicit(&core1_stopped, true, memory_order_release);
 }
 
 // Cleanup the environment.
 static inline void cleanup() {
     f_unmount("");
     multicore_reset_core1();
-    free(buffer0);
-    free(buffer1);
 }
 
 int main() {
@@ -180,7 +194,8 @@ int main() {
     }
     multicore_launch_core1(lcdJob);
     cpu_run();
-    cleanup();
+    wrefresh(curscr);
+    atomic_store_explicit(&core1_running, false, memory_order_release);
     status = console_exit();
     if (status) {
         printf("console_exit failed\n");
@@ -197,6 +212,10 @@ int main() {
         return 1;
     }
 
+    while (!atomic_load_explicit(&core1_stopped, memory_order_acquire)) {
+        tight_loop_contents();
+    }
+
     // const struct timespec ts = {0, 0};
     // aon_timer_start(&ts);
     // sleep_ms(2000);
@@ -204,5 +223,6 @@ int main() {
     // aon_timer_get_time_calendar(&tm);
     // printf("tm sec: %d\n", tm.tm_sec);
 
+    cleanup();
     exit(0);
 }
