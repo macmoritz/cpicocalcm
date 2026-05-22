@@ -42,10 +42,10 @@ int picocalc_drain_keyboard_fifo() {
 
     int status = picocalc_i2c(0x04, buf);
     if (status == -1) {
-        printf("picocalc_reset i2c write error\n");
+        printf("picocalc_drain_keyboard_fifo i2c write error\n");
         return -1;
     } else if (status == -2) {
-        printf("read_battery i2c read error\n");
+        printf("picocalc_drain_keyboard_fifo i2c read error\n");
         return -1;
     }
 

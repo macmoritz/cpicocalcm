@@ -44,7 +44,6 @@
 #define ORIENT_NORMAL 0
 
 #define COLOR_TYPE uint16_t
-// #define RGB(red, green, blue) (unsigned int)(((red & 0b11111111) << 16) | ((green & 0b11111111) << 8) | (blue & 0b11111111))
 #define RGB565(red, green, blue) (COLOR_TYPE)(((red & 0x1f) << 11) | ((green & 0x3f) << 5) | ((blue & 0x1f)))
 #define BLACK RGB565(0, 0, 0)
 #define BLUE RGB565(0, 0, 31)
