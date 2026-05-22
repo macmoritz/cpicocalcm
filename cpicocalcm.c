@@ -163,8 +163,8 @@ int main() {
     cols = lines = 40; // 40x40 chars with 8*8 pixel chars = 320x320 pixel output
     screen_delay = 0;  // no delay, exit emulation directly
     // screen_delay = -1; // delay, wait to exit emulation
-    conf_interactive = true;
-    dont_close = false;
+    conf_interactive = true; // ncurses "graphical" output
+    dont_close = false;      // default value, close file if closed in emulated software
 
     // stdio_init_all();
     // cpu_init();
