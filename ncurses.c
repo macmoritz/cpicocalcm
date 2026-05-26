@@ -42,12 +42,14 @@ int delwin(WINDOW *w) {
         return ERR;
     }
 
+    // Since pad and window are the same in this implementation and tnylpo calls `delwin(pad_p)` before `delwin(win_p)`,
+    // this trap for the first call is needed.
     static WINDOW *already_freed = NULL;
-
     if (w == already_freed) {
         return OK;
     }
     already_freed = w;
+
     if (w == curscr) {
         curscr = NULL;
     } else if (w == displayscr) {
