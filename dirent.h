@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 
 struct dirent {
-    char *d_name;
+    char d_name[FF_LFN_BUF + 1];
 };
 
 DIR *opendir(const char *name);

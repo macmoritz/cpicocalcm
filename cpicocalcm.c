@@ -31,6 +31,8 @@
 static atomic_bool core1_running = true;
 static atomic_bool core1_stopped = false;
 
+// TODO: move repeating timer here
+
 // This runs on the second core and renders the video content as well as sending the rendered content to the lcd
 void lcdJob() {
     lcd_init();
@@ -58,6 +60,7 @@ void lcdJob() {
             stopInNextIteration = true;
         }
     }
+    cancel_repeating_timer(&contentBlinkTimer);
     free(buffer0);
     free(buffer1);
     delwin(displayscr); // free content
@@ -144,9 +147,10 @@ int main() {
     // f_unmount("");
     // return 0;
 
-    conf_command = "/files.com";
+    // conf_command = "/files.com";
+    // conf_command = "/heap.com";
     // conf_command = "/animals.com";
-    // conf_command = "/all.com";
+    conf_command = "/all.com";
     conf_color = true;
     conf_background = COLOR_BLACK;
     conf_foreground = COLOR_WHITE;
@@ -196,6 +200,11 @@ int main() {
     cpu_run();
     wrefresh(curscr);
     atomic_store_explicit(&core1_running, false, memory_order_release);
+
+    while (!atomic_load_explicit(&core1_stopped, memory_order_acquire)) {
+        tight_loop_contents();
+    }
+
     status = console_exit();
     if (status) {
         printf("console_exit failed\n");
@@ -210,10 +219,6 @@ int main() {
     if (status) {
         printf("finalize_chario failed\n");
         return 1;
-    }
-
-    while (!atomic_load_explicit(&core1_stopped, memory_order_acquire)) {
-        tight_loop_contents();
     }
 
     // const struct timespec ts = {0, 0};

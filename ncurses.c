@@ -42,29 +42,20 @@ int delwin(WINDOW *w) {
         return ERR;
     }
 
-    // Since pad and window are the same in this implementation and tnylpo calls `delwin(pad_p)` before `delwin(win_p)`,
-    // this trap for the first call is needed.
-    if (w->content != NULL) {
-        if (curscr != NULL && curscr->content == w->content) {
-            curscr->content = NULL;
-        }
-        if (displayscr != NULL && displayscr->content == w->content) {
-            displayscr->content = NULL;
-        }
+    static WINDOW *already_freed = NULL;
 
-        free(w->content);
-        w->content = NULL;
+    if (w == already_freed) {
         return OK;
     }
-
+    already_freed = w;
     if (w == curscr) {
         curscr = NULL;
     } else if (w == displayscr) {
-        cancel_repeating_timer(&contentBlinkTimer);
         displayscr = NULL;
     }
+
+    free(w->content);
     free(w);
-    w = NULL;
 
     if (defined_color_pairs != NULL && curscr == NULL && displayscr == NULL) {
         // final cleanup
