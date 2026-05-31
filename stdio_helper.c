@@ -1,22 +1,10 @@
 #include "stdio_helper.h"
 #include "fatfs/source/ff.h"
 #include <stdbool.h>
-#include <string.h>
 #include <sys/errno.h>
 #include <sys/stat.h>
 
-const char *adjust_filename(const char *fn) {
-    if (!fn) {
-        return NULL;
-    }
-
-    if (fn[0] == '.' && fn[1] == '/') {
-        const char *adjusted = fn + 1;
-        return adjusted;
-    }
-    return fn;
-}
-
+// TODO: rename
 bool hasError(FRESULT result) {
     switch (result) {
     case FR_OK: /* Function succeeded */

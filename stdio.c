@@ -29,8 +29,8 @@
 #define FILE_DESCRIPTOR_MIN 3 // 0/1/2 are stdin/stdout/stderr
 #define MAX_FILES_OPEN 5
 
-FIL openFiles[5];
-bool fileInUse[5];
+FIL openFiles[MAX_FILES_OPEN];
+bool fileInUse[MAX_FILES_OPEN];
 
 static inline int getFILIndex(int file) {
     int i = file - FILE_DESCRIPTOR_MIN;
@@ -45,7 +45,7 @@ static inline int getFILIndex(int file) {
     return i;
 }
 
-int _open(const char *fn, int oflag) {
+int _open(const char *filename, int oflag) {
     int slot = 0;
     bool foundFreeSlot = false;
     for (; slot < MAX_FILES_OPEN; slot++) {
@@ -92,8 +92,6 @@ int _open(const char *fn, int oflag) {
         mode |= FA_OPEN_APPEND;
     }
 
-    const char *filename = adjust_filename(fn);
-
     FRESULT result = f_open(&openFiles[slot], filename, mode);
     // LOG("_open {fn: %s; oflag: %d; mode: %d}\tresult: %d\n", filename, oflag, mode, result);
     if (hasError(result)) {
@@ -110,7 +108,6 @@ int _close(int file) {
         return -1;
     }
     const FRESULT result = f_close(&openFiles[fileIndex]);
-    // LOG("_close {file: %d; fileIndex: %d}\tresult: %d\n", file, fileIndex, result);
     if (hasError(result)) {
         return -1;
     }
@@ -136,7 +133,6 @@ off_t _lseek(int fd, off_t pos, int whence) {
     if (fileIndex == -1) {
         return -1;
     }
-    // LOG("_lseek {fd: %d, pos: %ld, whence: %d}\n", fileIndex, pos, whence);
     const FIL *fp = &openFiles[fileIndex];
     FSIZE_t newPos = pos;
     if (whence == SEEK_CUR) {
@@ -166,7 +162,6 @@ int _fstat(int fd, struct stat *buf) {
     }
     const FIL *fp = &openFiles[fileIndex];
     setStat(fp, buf);
-    // LOG("fstat {size: %ld}\n", buf->st_size);
 
     return 0;
 }
@@ -178,8 +173,6 @@ int _stat(const char *file, struct stat *buf) {
         return -1;
     }
     setStat(f, buf);
-    // LOG("stat {size: %ld}\n", buf->st_size);
-
     f_close(f);
     return 0;
 }
@@ -208,8 +201,6 @@ int _write(int fd, char *buffer, int length) {
 }
 
 int _rename(const char *old, const char *new) {
-    old = adjust_filename(old);
-    new = adjust_filename(new);
     const FRESULT result = f_rename(old, new);
     // LOG("_rename {old: %s; new: %s; status: %d}\n", old, new, result);
     if (hasError(result)) {
@@ -222,8 +213,6 @@ int _rename(const char *old, const char *new) {
 int _link(const char *old, const char *new) {
     FIL fold;
     FIL fnew;
-    old = adjust_filename(old);
-    new = adjust_filename(new);
 
     FRESULT result = f_open(&fold, old, FA_READ | FA_OPEN_EXISTING);
     if (hasError(result)) {
@@ -257,7 +246,6 @@ int _link(const char *old, const char *new) {
 }
 
 int _unlink(const char *filename) {
-    filename = adjust_filename(filename);
     const FRESULT result = f_unlink(filename);
     if (hasError(result)) {
         return -1;

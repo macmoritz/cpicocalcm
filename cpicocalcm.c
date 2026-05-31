@@ -147,7 +147,7 @@ int main() {
     // f_unmount("");
     // return 0;
 
-    // conf_command = "/files.com";
+    // conf_command = "./files.com";
     // conf_command = "/heap.com";
     // conf_command = "/animals.com";
     conf_command = "/all.com";

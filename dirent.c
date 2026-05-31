@@ -10,11 +10,6 @@
 
 DIR *opendir(const char *name) {
     static DIR dir;
-    // TODO: Check for following
-    // TODO: Use stdio_helper translation
-    if (name[0] == '.') {
-        name++;
-    }
     f_opendir(&dir, name);
     return &dir;
 }
@@ -36,9 +31,8 @@ int closedir(DIR *dir) {
 }
 
 // TODO: use setStat from stdio_helper
-int lstat(const char *path, struct stat *filestat) {
+int lstat(const char *filename, struct stat *filestat) {
     FILINFO fi;
-    const char *filename = adjust_filename(path);
     const FRESULT result = f_stat(filename, &fi);
     if (result != FR_OK) {
         return 1;
