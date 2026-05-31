@@ -94,7 +94,7 @@ int _open(const char *filename, int oflag) {
 
     FRESULT result = f_open(&openFiles[slot], filename, mode);
     // LOG("_open {fn: %s; oflag: %d; mode: %d}\tresult: %d\n", filename, oflag, mode, result);
-    if (hasError(result)) {
+    if (hasAndTranslateError(result)) {
         fileInUse[slot] = false;
         return -1;
     }
@@ -108,7 +108,7 @@ int _close(int file) {
         return -1;
     }
     const FRESULT result = f_close(&openFiles[fileIndex]);
-    if (hasError(result)) {
+    if (hasAndTranslateError(result)) {
         return -1;
     }
     fileInUse[fileIndex] = false;
@@ -122,7 +122,7 @@ int _read(int fd, char *buffer, int length) {
     }
     UINT bytesRead = 0;
     const FRESULT result = f_read(&openFiles[fileIndex], buffer, length, &bytesRead);
-    if (hasError(result)) {
+    if (hasAndTranslateError(result)) {
         return -1;
     }
     return bytesRead;
@@ -142,7 +142,7 @@ off_t _lseek(int fd, off_t pos, int whence) {
     }
 
     const FRESULT result = f_lseek(&openFiles[fileIndex], pos);
-    if (hasError(result)) {
+    if (hasAndTranslateError(result)) {
         return -1;
     }
     return pos;
@@ -169,7 +169,7 @@ int _fstat(int fd, struct stat *buf) {
 int _stat(const char *file, struct stat *buf) {
     FIL *f;
     const FRESULT result = f_open(f, file, FA_READ | FA_OPEN_EXISTING);
-    if (hasError(result)) {
+    if (hasAndTranslateError(result)) {
         return -1;
     }
     setStat(f, buf);
@@ -193,7 +193,7 @@ int _write(int fd, char *buffer, int length) {
     UINT bytesWritten = 0;
     const FRESULT result = f_write(&openFiles[fileIndex], buffer, length, &bytesWritten);
     // LOG("\tbytesToWrite: %d\t bytesWritten: %d\n", length, bytesWritten);
-    if (hasError(result)) {
+    if (hasAndTranslateError(result)) {
         // LOG("_write failed: %d\n", result);
         return -1;
     }
@@ -203,7 +203,7 @@ int _write(int fd, char *buffer, int length) {
 int _rename(const char *old, const char *new) {
     const FRESULT result = f_rename(old, new);
     // LOG("_rename {old: %s; new: %s; status: %d}\n", old, new, result);
-    if (hasError(result)) {
+    if (hasAndTranslateError(result)) {
         return -1;
     }
     return 0;
@@ -215,31 +215,31 @@ int _link(const char *old, const char *new) {
     FIL fnew;
 
     FRESULT result = f_open(&fold, old, FA_READ | FA_OPEN_EXISTING);
-    if (hasError(result)) {
+    if (hasAndTranslateError(result)) {
         return -1;
     }
     result = f_open(&fnew, new, FA_WRITE | FA_CREATE_NEW);
-    if (hasError(result)) {
+    if (hasAndTranslateError(result)) {
         return -1;
     }
     uint8_t buffer[512];
     UINT bytesread, byteswritten;
     for (int i = 0; i < f_size(&fold); i += 512) {
         result = f_read(&fold, &buffer, 512, &bytesread);
-        if (hasError(result)) {
+        if (hasAndTranslateError(result)) {
             return -1;
         }
         result = f_write(&fnew, &buffer, bytesread, &byteswritten);
-        if (hasError(result)) {
+        if (hasAndTranslateError(result)) {
             return -1;
         }
     }
     result = f_close(&fold);
-    if (hasError(result)) {
+    if (hasAndTranslateError(result)) {
         return -1;
     }
     result = f_close(&fnew);
-    if (hasError(result)) {
+    if (hasAndTranslateError(result)) {
         return -1;
     }
     return 0;
@@ -247,7 +247,7 @@ int _link(const char *old, const char *new) {
 
 int _unlink(const char *filename) {
     const FRESULT result = f_unlink(filename);
-    if (hasError(result)) {
+    if (hasAndTranslateError(result)) {
         return -1;
     }
     return 0;

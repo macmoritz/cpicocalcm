@@ -3,8 +3,6 @@
 #include "sdcard.h"
 #include "stdio_helper.h"
 #include <pico/time.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/select.h>
 

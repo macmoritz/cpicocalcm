@@ -4,8 +4,7 @@
 #include <sys/errno.h>
 #include <sys/stat.h>
 
-// TODO: rename
-bool hasError(FRESULT result) {
+bool hasAndTranslateError(FRESULT result) {
     switch (result) {
     case FR_OK: /* Function succeeded */
         return false;
