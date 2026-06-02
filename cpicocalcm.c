@@ -151,10 +151,10 @@ int main() {
     // conf_command = "/heap.com";
     // conf_command = "/animals.com";
     conf_command = "/all.com";
+    // Recommended configuration:
     conf_color = true;
     conf_background = COLOR_BLACK;
     conf_foreground = COLOR_WHITE;
-    // int status = read_config(NULL); // needed to set charset, by default VT52
     // TODO: Check behaviour (esp. charset) when file not found
     int status = read_config(".tnylpo.conf");
     if (status) {
