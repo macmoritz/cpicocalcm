@@ -1,5 +1,4 @@
-
-
+// NOTE: termios is needed to compile tnylpo, but not used if graphical output is done with the help of ncurses. Only this output mode is working in this portation.
 // /usr/include/bits/termios-c_iflag.h
 /* c_iflag bits */
 #define IGNBRK 0000001  /* Ignore break condition.  */
