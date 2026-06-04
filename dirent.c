@@ -28,18 +28,22 @@ int closedir(DIR *dir) {
     return result == FR_OK;
 }
 
-// TODO: use setStat from stdio_helper
 int lstat(const char *filename, struct stat *filestat) {
+    FIL f;
+    FRESULT result = f_open(&f, filename, FA_READ | FA_OPEN_EXISTING);
+    if (hasAndTranslateError(result)) {
+        return 1;
+    }
+    setStat(&f, filestat);
+    f_close(&f);
+
     FILINFO fi;
-    const FRESULT result = f_stat(filename, &fi);
+    result = f_stat(filename, &fi);
     if (result != FR_OK) {
         return 1;
     }
 
-    filestat->st_size = fi.fsize;
     filestat->st_atim = get_seconds_since_epoch_from_fattime(fi.fdate, fi.ftime);
     filestat->st_mtim = get_seconds_since_epoch_from_fattime(fi.fdate, fi.ftime);
-    filestat->st_mode = S_IFREG;
-    filestat->st_nlink = 1;
     return 0;
 }

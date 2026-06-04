@@ -4,4 +4,4 @@
 
 bool hasAndTranslateError(FRESULT result);
 
-// static inline void setStat(const FIL *file, struct stat *stat);
+void setStat(const FIL *file, struct stat *stat);

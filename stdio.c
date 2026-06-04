@@ -148,13 +148,6 @@ off_t _lseek(int fd, off_t pos, int whence) {
     return pos;
 }
 
-static inline void setStat(const FIL *file, struct stat *stat) {
-    memset(stat, 0, sizeof(*stat));
-    stat->st_size = f_size(file);
-    stat->st_mode = S_IFREG;
-    stat->st_nlink = 1;
-}
-
 int _fstat(int fd, struct stat *buf) {
     int fileIndex = getFILIndex(fd);
     if (fileIndex == -1) {
@@ -167,13 +160,13 @@ int _fstat(int fd, struct stat *buf) {
 }
 
 int _stat(const char *file, struct stat *buf) {
-    FIL *f;
-    const FRESULT result = f_open(f, file, FA_READ | FA_OPEN_EXISTING);
+    FIL f;
+    const FRESULT result = f_open(&f, file, FA_READ | FA_OPEN_EXISTING);
     if (hasAndTranslateError(result)) {
         return -1;
     }
-    setStat(f, buf);
-    f_close(f);
+    setStat(&f, buf);
+    f_close(&f);
     return 0;
 }
 

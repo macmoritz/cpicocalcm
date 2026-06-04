@@ -92,17 +92,6 @@ int main() {
         panic("f_mount failed: %d\n", fresult);
     }
 
-    // f_unlink("/ers.tmp");
-    // f_unlink("/old.tmp");
-    // f_unlink("/new.tmp");
-    // f_unlink("/raw.tmp");
-    // f_unlink("/animals.dat");
-    // stdio.c: _open {fn: /animals.dat; oflag: 2562; mode: 7} result: 8
-    // make file (FCB 0x2e13): could not create ./animals.dat: File exists
-    // 2562 = 0xa02 = 0x0800 + 0x0200 + 0x0002 = FEXCL (error on open if file exists) + FCREATE (open with file create) + FRDWR (Read + Write)
-    // animals calls dbos 19 -> delete file
-    // TODO: does this work in fatfs?
-
     // Read dir
     printf("SD Card Content:\n");
     DIR dir;
@@ -123,34 +112,10 @@ int main() {
     f_closedir(&dir);
     printf("\n");
 
-    // FIL file;
-    // f_open(&file, "test.txt", FA_READ);
-    // char *buffer = calloc(20, sizeof(char));
-    // UINT bytes_read = 0;
-    // f_read(&file, buffer, 20, &bytes_read);
-    // buffer[19] = '\0';
-    // printf("test.txt content: %s\n", buffer);
-    // f_close(&file);
-
-    // fresult = f_open(&file, "fatfs.txt", FA_OPEN_APPEND | FA_WRITE);
-    // if (fresult != FR_OK) {
-    //     panic("f_open FA_CREATE_NEW failed: %d\n", fresult);
-    // }
-    // buffer = "String aus D";
-    // UINT written = 0;
-    // fresult = f_write(&file, buffer, 13, &written);
-    // if (fresult != FR_OK) {
-    //     panic("f_write failed: %d\n", fresult);
-    // }
-    // printf("Written %d bytes\n", written);
-    // f_close(&file);
-    // f_unmount("");
-    // return 0;
-
-    // conf_command = "./files.com";
+    conf_command = "./files.com";
     // conf_command = "/heap.com";
     // conf_command = "/animals.com";
-    conf_command = "/all.com";
+    // conf_command = "/all.com";
     // Recommended configuration:
     conf_color = true;
     conf_background = COLOR_BLACK;
@@ -164,9 +129,9 @@ int main() {
     }
 
     // Persistent configuration:
-    cols = lines = 40; // 40x40 chars with 8*8 pixel chars = 320x320 pixel output
-    screen_delay = 0;  // no delay, exit emulation directly
-    // screen_delay = -1; // delay, wait to exit emulation
+    cols = lines = 40;       // 40x40 chars with 8*8 pixel chars = 320x320 pixel output
+    screen_delay = 0;        // no delay, exit emulation directly
+    screen_delay = -1;       // delay, wait to exit emulation
     conf_interactive = true; // ncurses "graphical" output
     dont_close = false;      // default value, close file if closed in emulated software
 

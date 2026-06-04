@@ -1,6 +1,7 @@
 #include "stdio_helper.h"
 #include "fatfs/source/ff.h"
 #include <stdbool.h>
+#include <string.h>
 #include <sys/errno.h>
 #include <sys/stat.h>
 
@@ -62,20 +63,9 @@ bool hasAndTranslateError(FRESULT result) {
     return true;
 }
 
-// static inline void setStat(const FIL *file, struct stat *stat) {
-//     memset(stat, 0, sizeof(*stat));
-//     stat->st_size = f_size(file);
-//     stat->st_mode = S_IFREG;
-//     stat->st_nlink = 1;
-
-//     FILINFO fi;
-//     const FRESULT result = f_stat(file->, &fi);
-//     printf("lstat {path: %s; result: %d, fsize: %d}\n", path, result, fi.fsize);
-//     if (result != FR_OK) {
-//         return 1;
-//     }
-//     filestat->st_size = fi.fsize;
-//     filestat->st_atim = get_seconds_since_epoch_from_fattime(fi.fdate, fi.ftime);
-//     filestat->st_mtim = get_seconds_since_epoch_from_fattime(fi.fdate, fi.ftime);
-
-// }
+void setStat(const FIL *file, struct stat *stat) {
+    memset(stat, 0, sizeof(*stat));
+    stat->st_size = f_size(file);
+    stat->st_mode = S_IFREG;
+    stat->st_nlink = 1;
+}
