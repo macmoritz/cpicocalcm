@@ -112,10 +112,7 @@ int main() {
     f_closedir(&dir);
     printf("\n");
 
-    conf_command = "./files.com";
-    // conf_command = "/heap.com";
-    // conf_command = "/animals.com";
-    // conf_command = "/all.com";
+    conf_command = "./sh.com";
     // Recommended configuration:
     conf_color = true;
     conf_background = COLOR_BLACK;
