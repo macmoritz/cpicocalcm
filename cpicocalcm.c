@@ -165,20 +165,10 @@ int main() {
         panic("f_mount failed: %d\n", fresult);
     }
 
-    // Read dir
-    printf("SD Card Content:\n");
-    DIR dir;
-    FILINFO fileinfo;
-    fresult = f_opendir(&dir, "/");
-    if (fresult != FR_OK) {
-        cleanup();
-        panic("f_opendir failed: %d\n", fresult);
-    }
-
     // conf_command = "./all.com"; // Emulated CPU Speed: 6.094598 MHz, 6094598.100088 Hz
     // conf_command = "./heap.com"; // Emulated CPU Speed: 6.809115 MHz, 6809114.745804 Hz
 
-    // Configuration of portation (f.e. path to executable file, path to tnylpo config)
+    // Configuring portation (f.e. path to executable file, path to tnylpo config)
     int status = readCPicoCalcMConfig();
     if (status == -1) {
         printf("readCPicoCalcMConfig failed\n");
@@ -199,9 +189,8 @@ int main() {
     }
 
     // Persistent configuration:
-    cols = lines = 40;       // 40x40 chars with 8*8 pixel chars = 320x320 pixel output
+    cols = lines = 40;       // 40x40 chars with 8x8 pixel chars = 320x320 pixel output
     screen_delay = 0;        // no delay, exit emulation directly
-    screen_delay = -1;       // delay, wait to exit emulation
     conf_interactive = true; // ncurses "graphical" output
     dont_close = false;      // default value, close file if closed in emulated software
 
