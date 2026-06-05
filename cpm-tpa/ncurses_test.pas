@@ -22,13 +22,13 @@ begin
   end;
   Write(ESC, 'm');
   WriteLn(LineBreak, 'Normal', LineBreak);
-  WriteLn(ESC, 'c', 'Alternative Font', #27, 'd', LineBreak);
-  WriteLn(ESC, 'e', 'Bold', #27, 'f', LineBreak);
-  WriteLn(ESC, 'g', 'Underline', #27, 'h', LineBreak);
-  WriteLn(ESC, 'i', 'Inverted', #27, 'j', LineBreak);
-  WriteLn(ESC, 'k', 'Blinking', #27, 'l', LineBreak);
-  WriteLn(ESC, 'p', 'Standout', #27, 'q', LineBreak);
-  WriteLn(ESC, 'i', #27, 'g', #27, 'k', 'Blinking & Underline & Inverted', #27, 'm');
+  WriteLn(ESC, 'c', 'Alternative Font', ESC, 'd', LineBreak);
+  WriteLn(ESC, 'e', 'Bold', ESC, 'f', LineBreak);
+  WriteLn(ESC, 'g', 'Underline', ESC, 'h', LineBreak);
+  WriteLn(ESC, 'i', 'Inverted', ESC, 'j', LineBreak);
+  WriteLn(ESC, 'k', 'Blinking', ESC, 'l', LineBreak);
+  WriteLn(ESC, 'p', 'Standout', ESC, 'q', LineBreak);
+  WriteLn(ESC, 'i', ESC, 'g', ESC, 'k', 'Blinking & Underline & Inverted', ESC, 'm');
 
   repeat until KeyPressed;
   Write(ESC, 'E'); // E: Clear Screen; Cursor home
