@@ -4,6 +4,7 @@
 #include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
 #define _POSIX_TIMERS 1
 
 #include "cpm-tpa/assembly/bell.h"
@@ -29,6 +30,7 @@
 
 static atomic_bool core1_running = true;
 static atomic_bool core1_stopped = false;
+char *tnylpo_config = ".tnylpo.conf";
 
 // TODO: move repeating timer here
 
@@ -123,13 +125,25 @@ int readCPicoCalcMConfig() {
             valueLength++;
         }
 
+        char **target = NULL;
         if (strncmp(start, "command", 7) == 0) {
-            conf_command = malloc((valueLength + 1) * sizeof(char));
-            memcpy(conf_command, value, valueLength * sizeof(char));
-            conf_command[valueLength] = '\0';
+            target = &conf_command;
+        } else if (strncmp(start, "tnylpo config", 13) == 0) {
+            free(tnylpo_config);
+            target = &tnylpo_config;
+        }
+
+        if (target != NULL) {
+            *target = malloc((valueLength + 1) * sizeof(char));
+            if (*target == NULL) {
+                return -1;
+            }
+            memcpy(*target, value, valueLength * sizeof(char));
+            (*target)[valueLength] = '\0';
             count += 1;
         }
     }
+
     return count;
 }
 
@@ -161,16 +175,23 @@ int main() {
         panic("f_opendir failed: %d\n", fresult);
     }
 
-    readCPicoCalcMConfig();
-
     // conf_command = "./all.com"; // Emulated CPU Speed: 6.094598 MHz, 6094598.100088 Hz
     // conf_command = "./heap.com"; // Emulated CPU Speed: 6.809115 MHz, 6809114.745804 Hz
+
+    // Configuration of portation (f.e. path to executable file, path to tnylpo config)
+    int status = readCPicoCalcMConfig();
+    if (status == -1) {
+        printf("readCPicoCalcMConfig failed\n");
+        cleanup();
+        return 1;
+    }
+
     // Recommended configuration:
     conf_color = true;
     conf_background = COLOR_BLACK;
     conf_foreground = COLOR_WHITE;
-    // TODO: Check behaviour (esp. charset) when file not found
-    int status = read_config(".tnylpo.conf");
+
+    status = read_config(tnylpo_config);
     if (status) {
         printf("read_config failed\n");
         cleanup();
