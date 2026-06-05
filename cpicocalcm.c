@@ -6,8 +6,6 @@
 #include <string.h>
 #define _POSIX_TIMERS 1
 
-// #include "tnylpo/cpu.c"
-// #include "tnylpo/os.c"
 #include "cpm-tpa/assembly/bell.h"
 #include "cpm-tpa/assembly/keyboard_bell.h"
 // #include "cpm-tpa/bell.h"
@@ -16,6 +14,7 @@
 #include "lcd.h"
 #include "ncurses.h"
 #include "picocalc.h"
+#include "stdio_helper.h"
 #include "tnylpo/tnylpo.h"
 #include <hardware/gpio.h>
 #include <pico/aon_timer.h>
@@ -74,6 +73,66 @@ static inline void cleanup() {
     multicore_reset_core1();
 }
 
+/**
+ * @brief Reads file '.cpicocalcm.conf', parses and sets configuration values.
+ * Format is inspired by tnylpo:
+ * Empty lines and lines starting with a hash sign (#) or a semicolon (;) are ignored.
+ * All other lines have the form
+ *
+ *   <keyword> = <token>
+ *
+ * <keyword> is a lowercase string.
+ * <token> is a string in double quotes.
+ *
+ * @return -1 if an error occured, any number equal or greater 0 is the count of parameters set.
+ */
+int readCPicoCalcMConfig() {
+    FIL file;
+    FRESULT result = f_open(&file, ".cpicocalcm.conf", FA_READ);
+    if (hasAndTranslateError(result)) {
+        return -1;
+    }
+    int count = 0;
+    char *buffer = malloc(255 * sizeof(char));
+    while (!f_eof(&file)) {
+        f_gets(buffer, 255, &file);
+
+        char *start = buffer;
+        while (*start < 'a' && *start > 'z' && *start != ';' && *start != '#' && *start != '\n') {
+            start++;
+        }
+        if (*start == ';' || *start == '#' || *start == '\n') {
+            // line is empty or starts with ';' or '#'
+            continue;
+        }
+
+        char *value = buffer;
+        while (*value != '=' && *value != '\n') {
+            value++;
+        }
+        value++; // step over '='
+        if (*value == '\n') {
+            // no value given
+            return -1;
+        }
+        while (*value == '\t' || *value == ' ' || *value == '"' || *value == '\'') {
+            value++;
+        }
+        int valueLength = 0;
+        for (int i = 0; value[i] >= '.' && value[i] <= 'z'; i++) {
+            valueLength++;
+        }
+
+        if (strncmp(start, "command", 7) == 0) {
+            conf_command = malloc((valueLength + 1) * sizeof(char));
+            memcpy(conf_command, value, valueLength * sizeof(char));
+            conf_command[valueLength] = '\0';
+            count += 1;
+        }
+    }
+    return count;
+}
+
 int main() {
     stdio_init_all();
 
@@ -102,17 +161,10 @@ int main() {
         panic("f_opendir failed: %d\n", fresult);
     }
 
-    while (1) {
-        fresult = f_readdir(&dir, &fileinfo);
-        if (fresult != FR_OK || fileinfo.fname[0] == 0) {
-            break;
-        }
-        printf("\t%s %c\n", fileinfo.fname, (fileinfo.fattrib & AM_DIR) ? '/' : ' ');
-    }
-    f_closedir(&dir);
-    printf("\n");
+    readCPicoCalcMConfig();
 
-    conf_command = "./sh.com";
+    // conf_command = "./all.com"; // Emulated CPU Speed: 6.094598 MHz, 6094598.100088 Hz
+    // conf_command = "./heap.com"; // Emulated CPU Speed: 6.809115 MHz, 6809114.745804 Hz
     // Recommended configuration:
     conf_color = true;
     conf_background = COLOR_BLACK;
