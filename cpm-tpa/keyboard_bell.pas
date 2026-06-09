@@ -3,7 +3,7 @@ program KeyboardBell;
 begin
     while True do
     begin
-        ReadKey;
-        Write(Chr(7));
+        ReadKey;        // Read input blocking
+        Write(Chr(7));  // Write the ASCII bell character to the console
     end;
 end.
