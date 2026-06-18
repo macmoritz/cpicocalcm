@@ -31,13 +31,22 @@
 static atomic_bool core1_running = true;
 static atomic_bool core1_stopped = false;
 char *tnylpo_config = ".tnylpo.conf";
+struct repeating_timer contentBlinkTimer;
 
-// TODO: move repeating timer here
+bool contentBlinkCallback(struct repeating_timer *timer) {
+    WINDOW *scr = timer->user_data;
+    if (scr == NULL) {
+        return false;
+    }
+    scr->blinkstate = !scr->blinkstate;
+    return true;
+}
 
 // This runs on the second core and renders the video content as well as sending the rendered content to the lcd
 void lcdJob() {
     lcd_init();
     lcd_clear();
+    add_repeating_timer_ms(-500, contentBlinkCallback, displayscr, &contentBlinkTimer);
     uint64_t frameCounter = 0;
     uint64_t frameStart = to_us_since_boot(get_absolute_time());
     buffer0 = malloc(bufferSize * sizeof(COLOR_TYPE));

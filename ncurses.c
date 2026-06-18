@@ -14,7 +14,6 @@ int COLOR_PAIRS;
 NCURSES_PAIRS_T *defined_color_pairs = NULL;
 WINDOW *curscr = NULL;
 WINDOW *displayscr = NULL;
-struct repeating_timer contentBlinkTimer;
 
 int curs_set(int visibility) {
     curscr->prevCursorVisibility = curscr->cursorVisibility;
@@ -224,8 +223,6 @@ WINDOW *initscr(void) {
     if (!displayscr) {
         return NULL;
     }
-
-    add_repeating_timer_ms(-500, contentBlinkCallback, displayscr, &contentBlinkTimer);
 
     return curscr;
 }
@@ -495,13 +492,4 @@ static void clearContent(cchar_t *start, size_t length) {
     for (int i = 0; i < length; i++) {
         start[i] = empty;
     }
-}
-
-bool contentBlinkCallback(struct repeating_timer *timer) {
-    WINDOW *scr = timer->user_data;
-    if (scr == NULL) {
-        return false;
-    }
-    scr->blinkstate = !scr->blinkstate;
-    return true;
 }

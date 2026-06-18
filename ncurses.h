@@ -586,6 +586,3 @@ static void clearline(WINDOW *, int);
 static int cursorToIndex(WINDOW *);
 
 static void clearContent(cchar_t *start, size_t length);
-
-extern struct repeating_timer contentBlinkTimer;
-bool contentBlinkCallback(struct repeating_timer *timer);
