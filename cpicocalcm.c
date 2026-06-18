@@ -180,6 +180,7 @@ int main() {
     conf_color = true;
     conf_background = COLOR_BLACK;
     conf_foreground = COLOR_WHITE;
+    conf_memsize = 0; // default memory configuration
 
     status = read_config(tnylpo_config);
     if (status) {
