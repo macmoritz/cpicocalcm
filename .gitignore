@@ -1,8 +1,8 @@
 build/
 .cache/
 .vscode/
-cpm-tpa/*.com
-cpm-tpa/*.lst
-cpm-tpa/*.z80
-cpm-tpa/assembly/*.com
+cpm-programs/*.com
+cpm-programs/*.lst
+cpm-programs/*.z80
+cpm-programs/assembly/*.com
 fatfs/documents/
