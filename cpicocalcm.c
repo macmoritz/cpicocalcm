@@ -4,14 +4,13 @@
 #include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
-#include <wchar.h>
 #define _POSIX_TIMERS 1
 
-#include "cpm-tpa/assembly/bell.h"
-#include "cpm-tpa/assembly/keyboard_bell.h"
-// #include "cpm-tpa/bell.h"
-// #include "cpm-tpa/keyboard_bell.h"
-#include "cpm-tpa/ncurses_test.h"
+// #include "cpm-programs/assembly/bell.h"
+// #include "cpm-programs/assembly/keyboard_bell.h"
+// #include "cpm-programs/bell.h"
+// #include "cpm-programs/keyboard_bell.h"
+// #include "cpm-programs/ncurses.h"
 #include "lcd.h"
 #include "ncurses.h"
 #include "picocalc.h"
@@ -140,6 +139,11 @@ int readCPicoCalcMConfig() {
         } else if (strncmp(start, "tnylpo config", 13) == 0) {
             free(tnylpo_config);
             target = &tnylpo_config;
+        } else if (strncmp(start, "arg", 3) == 0) {
+            conf_argc = 1;
+            char *tmp;
+            target = &tmp;
+            conf_argv = &tmp;
         }
 
         if (target != NULL) {

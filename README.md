@@ -30,8 +30,9 @@ All other lines have the form `<keyword> = <token>`
 where `<keyword>` is a lowercase string and `<token>` is a string in double quotes.
 
 ### Configuration options
-- `command = "<path>"` Path to executable file which is run on start. This should be a CCP (Command Console Processor) in most cases.
+- `command = "<path>"`: Path to executable file which is run on start. This should be a CCP (Command Console Processor) in most cases.
 - `tnylpo config = ".tnylpo.conf"`: Path to `tnylpo` config, defaults to `.tnylpo.conf`.
+- `arg = "<argument>"`: Allows passing a single argument to the command.
 
 [pasta80]: https://github.com/pleumann/pasta80/
 [picocalc]: https://www.clockworkpi.com/picocalc
