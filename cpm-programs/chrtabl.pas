@@ -28,8 +28,6 @@ begin
     end;
 end;
 
-var
-    C: Char;
 begin
     ClrScr;
 
@@ -39,6 +37,4 @@ begin
     WriteLn('*** Alternative Charset ***');
     Write(ESC, 'F');
     PrintCharTable;
-
-    C := ReadKey;
 end.
