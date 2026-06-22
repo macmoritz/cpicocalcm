@@ -117,7 +117,9 @@ copyFcbNameTypeAndJp:
 
 loadFile:
         ; use a safe stack location
+        pop hl ; get the return address from the stack
         ld sp, DEST_START-6
+        push hl ; push the return address back to the stack
 
         ld de, 0005ch   ; primary FCB at 0x005c
         ld c, 0fh       ; open file
@@ -190,12 +192,10 @@ executeFile:
         jp (hl)
 
 loadFileFailed:
-        ld      de, msgFail
-        ld      c, 9 ; print string
-        RUNORIGBDOS
-
-        ld      hl, (origBios)  ; get original BIOS function pointer
-        jp      (hl)            ; call the original BIOS function to cancel execution
+        ; ld      de, msgFail
+        ; ld      c, 9 ; print string
+        ; RUNORIGBDOS
+        ret
 
 ; BIOS Trap
 ; replicated and modified BIOS Table
@@ -241,7 +241,7 @@ origBdos:       dw 0 ; store original bdos function pointer
 dmaAddress:     dw 0 ; store DMA Address for file writing
 fcbNameType:    db 0,0,0,0,0,0,0,0,0,0,0 ; store FCB filename and filetype, 11 bytes
 
-msgFail:        db  "Loading file failed.",13,10,"$"
+; msgFail:        db  "Loading file failed.",13,10,"$"
         RELOCATE_END
 
 relocation_table:

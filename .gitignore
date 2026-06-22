@@ -5,4 +5,5 @@ cpm-programs/*.com
 cpm-programs/*.lst
 cpm-programs/*.z80
 cpm-programs/assembly/*.com
+cpm-programs/ccpload/*.com
 fatfs/documents/
